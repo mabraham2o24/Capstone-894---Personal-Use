@@ -15,9 +15,13 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from music21 import converter, tempo
+from sqlalchemy.orm import Session
+
+from database import Base, engine, get_db
+from models import PracticeSession
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -29,6 +33,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Creates the practice_sessions table if it doesn't exist yet. Fine for
+# a prototype; a real migration tool (Alembic) can replace this later.
+Base.metadata.create_all(bind=engine)
+
 ALLOWED_EXTENSIONS = {".xml", ".musicxml", ".mxl"}
 
 
@@ -38,15 +46,49 @@ def health_check():
     return {"status": "ok", "message": "Virtual Music Instructor backend is running"}
 
 
-@app.post("/upload")
-async def upload_score(file: UploadFile = File(...)):
+@app.post("/sessions")
+def create_session(db: Session = Depends(get_db)):
     """
-    Receive a MusicXML file, save it temporarily, and parse it with
-    music21 to extract basic score information.
+    US-01 - Create Practice Session.
+    Creates a new (empty) practice session row and returns its id, so
+    the frontend has something to attach an uploaded score to.
+    """
+    session = PracticeSession(status="created")
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return {"session_id": str(session.id), "status": session.status}
+
+
+@app.get("/sessions/{session_id}")
+def get_session(session_id: str, db: Session = Depends(get_db)):
+    """Fetch a stored session - groundwork for US-20 (review practice history)."""
+    session = db.get(PracticeSession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": str(session.id),
+        "status": session.status,
+        "score_filename": session.score_filename,
+        "score_summary": session.score_summary,
+        "created_at": session.created_at,
+    }
+
+
+@app.post("/sessions/{session_id}/upload-score")
+async def upload_score(session_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Receive a MusicXML file, save it temporarily, parse it with music21,
+    and persist the extracted summary onto the given practice session.
 
     This corresponds to US-02 (Upload MusicXML Score) and the start
-    of US-03/US-04 (extracting pitches, durations, measures, tempo).
+    of US-03/US-04 (extracting pitches, durations, measures, tempo),
+    now wired into US-01's session + persistent storage (AR-08).
     """
+    session = db.get(PracticeSession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -68,9 +110,16 @@ async def upload_score(file: UploadFile = File(...)):
 
     notes_info = extract_basic_info(score)
 
+    session.score_filename = file.filename
+    session.score_summary = notes_info
+    session.status = "score_uploaded"
+    db.commit()
+    db.refresh(session)
+
     return {
+        "session_id": str(session.id),
         "filename": file.filename,
-        "status": "received_and_parsed",
+        "status": session.status,
         "summary": notes_info,
     }
 
