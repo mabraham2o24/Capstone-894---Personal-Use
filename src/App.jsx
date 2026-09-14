@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import './App.css'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState(null)
@@ -27,9 +28,12 @@ function App() {
     setResult(null)
 
     try {
-      const sessionResponse = await fetch('http://127.0.0.1:8000/sessions', {
-        method: 'POST',
-      })
+      const sessionResponse = await fetch(
+        'http://127.0.0.1:8000/sessions',
+        {
+          method: 'POST',
+        }
+      )
 
       if (!sessionResponse.ok) {
         throw new Error('Could not create a practice session.')
@@ -51,7 +55,9 @@ function App() {
       const uploadData = await uploadResponse.json()
 
       if (!uploadResponse.ok) {
-        throw new Error(uploadData.detail || 'Score upload failed.')
+        throw new Error(
+          uploadData.detail || 'Score upload failed.'
+        )
       }
 
       setResult(uploadData)
@@ -64,41 +70,93 @@ function App() {
   }
 
   return (
-    <div>
-      <h1>Virtual Music Instructor</h1>
-      <p>Upload a MusicXML file to begin.</p>
+    <div className="app-container">
+      <div className="card">
+        <h1>Virtual Music Instructor</h1>
 
-      <input
-        type="file"
-        accept=".xml,.musicxml"
-        onChange={handleFileChange}
-      />
+        <p className="subtitle">
+          Upload a MusicXML score to begin your practice session.
+        </p>
 
-      {selectedFile && (
-        <p>Selected file: {selectedFile.name}</p>
-      )}
+        <div className="upload-section">
+          <label className="file-label">
+            Choose MusicXML File
+            <input
+              type="file"
+              accept=".xml,.musicxml"
+              onChange={handleFileChange}
+            />
+          </label>
 
-      <button onClick={handleUpload} disabled={loading}>
-        {loading ? 'Processing...' : 'Upload Score'}
-      </button>
+          {selectedFile && (
+            <div className="selected-file">
+              Selected file:
+              <strong>{selectedFile.name}</strong>
+            </div>
+          )}
 
-      {message && <p>{message}</p>}
-
-      {result && (
-        <div>
-          <h2>Score Summary</h2>
-          <p>Filename: {result.filename}</p>
-          <p>Status: {result.status}</p>
-          <p>Total Notes: {result.summary.total_notes_detected}</p>
-          <p>Measures: {result.summary.num_measures}</p>
-          <p>
-            Tempo:{' '}
-            {result.summary.tempo_bpm
-              ? `${result.summary.tempo_bpm} BPM`
-              : 'Not specified'}
-          </p>
+          <button
+            className="upload-button"
+            onClick={handleUpload}
+            disabled={loading}
+          >
+            {loading ? 'Processing...' : 'Upload Score'}
+          </button>
         </div>
-      )}
+
+        {message && (
+          <div
+            className={
+              result
+                ? 'message success-message'
+                : 'message'
+            }
+          >
+            {message}
+          </div>
+        )}
+
+        {result && (
+          <div className="summary-card">
+            <h2>Score Summary</h2>
+
+            <div className="summary-grid">
+              <div>
+                <span>Filename</span>
+                <strong>{result.filename}</strong>
+              </div>
+
+              <div>
+                <span>Status</span>
+                <strong>{result.status}</strong>
+              </div>
+
+              <div>
+                <span>Total Notes</span>
+                <strong>
+                  {result.summary.total_notes_detected}
+                </strong>
+              </div>
+
+              <div>
+                <span>Measures</span>
+                <strong>
+                  {result.summary.num_measures}
+                </strong>
+              </div>
+
+              <div>
+                <span>Tempo</span>
+                <strong>
+                  {result.summary.tempo_bpm
+                    ? `${result.summary.tempo_bpm} BPM`
+                    : 'Not specified'}
+                </strong>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
