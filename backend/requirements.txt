@@ -5,3 +5,4 @@ music21
 sqlalchemy
 psycopg2-binary
 python-dotenv
+librosa
