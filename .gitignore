@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (contains DB credentials - never commit)
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
