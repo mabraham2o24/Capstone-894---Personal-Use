@@ -27,4 +27,10 @@ class PracticeSession(Base):
     score_filename = Column(String, nullable=True)
     score_summary = Column(JSON, nullable=True)  # notes/measures/tempo, etc.
 
+    # Populated once a performance audio file has been uploaded and analyzed
+    # (US-05/US-07/US-08)
+    audio_filename = Column(String, nullable=True)
+    detected_pitches = Column(JSON, nullable=True)
+    note_events = Column(JSON, nullable=True)
+
     status = Column(String, default="created")  # created -> score_uploaded -> ...

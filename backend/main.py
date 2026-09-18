@@ -22,6 +22,8 @@ from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
 from models import PracticeSession
+from music_analysis.audio_pitch import detect_pitches
+from music_analysis.note_events import detect_note_events
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -38,6 +40,7 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 ALLOWED_EXTENSIONS = {".xml", ".musicxml", ".mxl"}
+ALLOWED_AUDIO_EXTENSIONS = {".wav"}
 
 
 @app.get("/")
@@ -71,6 +74,9 @@ def get_session(session_id: str, db: Session = Depends(get_db)):
         "status": session.status,
         "score_filename": session.score_filename,
         "score_summary": session.score_summary,
+        "audio_filename": session.audio_filename,
+        "detected_pitches": session.detected_pitches,
+        "note_events": session.note_events,
         "created_at": session.created_at,
     }
 
@@ -113,6 +119,7 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
     session.score_filename = file.filename
     session.score_summary = notes_info
     session.status = "score_uploaded"
+
     db.commit()
     db.refresh(session)
 
@@ -121,6 +128,62 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
         "filename": file.filename,
         "status": session.status,
         "summary": notes_info,
+    }
+
+@app.post("/sessions/{session_id}/upload-audio")
+async def upload_audio(
+    session_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """
+    US-05 / US-07 / US-08.
+
+    Receive a WAV performance recording, analyze its pitches and
+    note events, and store the analysis results on the practice session.
+    """
+    session = db.get(PracticeSession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ALLOWED_AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio file type '{suffix}'. Expected .wav.",
+        )
+
+    #Save the uploaded audio temporarily so librosa can analyze it.
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    try:
+        detected_pitches = detect_pitches(tmp_path)
+        note_events = detect_note_events(tmp_path)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not analyze audio file: {exc}",
+        )
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    session.audio_filename = file.filename
+    session.detected_pitches = detected_pitches
+    session.note_events = note_events
+    session.status = "audio_analyzed"
+
+    db.commit()
+    db.refresh(session)
+
+    return {
+        "session_id": str(session.id),
+        "filename": file.filename,
+        "status": session.status,
+        "detected_pitches": detected_pitches,
+        "note_events": note_events,
     }
 
 
