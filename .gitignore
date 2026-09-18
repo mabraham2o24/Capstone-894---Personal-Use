@@ -24,9 +24,9 @@ dist-ssr
 *.sw?
 
 # Python backend local files
-backend/.env
-backend/.venv/
-backend/__pycache__/
+.env
+.venv/
+venv/
+__pycache__/
 *.pyc
-
 backend/test_audio/
