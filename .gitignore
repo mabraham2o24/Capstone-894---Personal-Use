@@ -12,15 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Environment variables (contains DB credentials - never commit)
-.env
-
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -33,9 +24,9 @@ venv/
 *.sw?
 
 # Python backend local files
-backend/.env
-backend/.venv/
-backend/__pycache__/
+.env
+.venv/
+venv/
+__pycache__/
 *.pyc
-
 backend/test_audio/
