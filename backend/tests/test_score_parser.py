@@ -35,6 +35,10 @@ def test_invalid_part_index():
     with pytest.raises(ValueError):
         extract_expected_notes("sample.xml", part_index=99)
 
+def test_note_details_invalid_part_index():
+    with pytest.raises(ValueError):
+        extract_note_details("sample.xml", part_index=99)
+
 
 def test_extract_note_durations():
     notes = extract_note_details("sample.xml", part_index=0)

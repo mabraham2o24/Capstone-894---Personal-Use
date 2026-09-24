@@ -1,3 +1,5 @@
+import pytest
+
 from music_analysis.pitch_utils import note_to_midi, pitch_distance
 
 
@@ -28,3 +30,7 @@ def test_multiple_semitone_pitch_distance():
 
 def test_octave_pitch_distance():
     assert pitch_distance("E4", "E5") == 12
+
+def test_invalid_note_raises_error():
+    with pytest.raises(ValueError):
+        note_to_midi("H4")
