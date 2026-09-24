@@ -30,3 +30,7 @@ venv/
 __pycache__/
 *.pyc
 backend/test_audio/
+
+# Test coverage artifacts
+.coverage
+htmlcov/
