@@ -1,6 +1,6 @@
 import pytest
 
-from music_analysis.score_parser import (extract_expected_notes, extract_note_details, extract_tempo)
+from music_analysis.score_parser import (extract_expected_notes, extract_note_details, extract_notes_by_measure, extract_tempo)
 
 
 def test_extract_expected_notes_from_first_part():
@@ -76,3 +76,33 @@ def test_extract_tempo():
     assert tempo_bpm is not None
     assert isinstance(tempo_bpm, float)
     assert tempo_bpm == 96.0
+
+def test_extract_notes_by_measure():
+    file_path = "test_music/Canon_in_D/canon-in-d.mxl"
+
+    notes = extract_notes_by_measure(
+        file_path,
+        start_measure=3,
+        end_measure=6
+    )
+
+    assert notes == [
+        "F#5", "E5", "D5", "C#5",
+        "B4", "A4", "B4", "C#5",
+        "F#5", "E5", "D5", "C#5",
+        "B4", "A4", "B4", "C#5",
+    ]
+
+
+def test_extract_notes_by_measure_invalid_range():
+    file_path = "test_music/Canon_in_D/canon-in-d.mxl"
+
+    try:
+        extract_notes_by_measure(
+            file_path,
+            start_measure=6,
+            end_measure=3
+        )
+        assert False, "Expected ValueError"
+    except ValueError:
+        pass
