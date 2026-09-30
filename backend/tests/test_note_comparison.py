@@ -39,3 +39,70 @@ def test_multiple_incorrect_pitches():
     assert result["accuracy"] == 40.0
     assert result["correct_notes"] == 2
     assert len(result["errors"]) == 3
+
+def test_missing_note():
+    expected = ["C4", "D4", "E4", "F4", "G4"]
+    performed = ["C4", "D4", "F4", "G4"]
+
+    result = compare_notes(expected, performed)
+
+    assert result["total_notes"] == 5
+    assert result["correct_notes"] == 4
+    assert result["accuracy"] == 80.0
+    assert result["errors"] == [
+        {
+            "note_index": 2,
+            "expected_note": "E4",
+            "performed_note": None,
+            "error_type": "missing_note"
+        }
+    ]
+
+
+def test_additional_note():
+    expected = ["C4", "D4", "E4", "F4", "G4"]
+    performed = ["C4", "D4", "E4", "A4", "F4", "G4"]
+
+    result = compare_notes(expected, performed)
+
+    assert result["total_notes"] == 5
+    assert result["correct_notes"] == 5
+    assert result["accuracy"] == 100.0
+    assert result["errors"] == [
+        {
+            "note_index": 3,
+            "expected_note": None,
+            "performed_note": "A4",
+            "error_type": "additional_note"
+        }
+    ]
+
+def test_missing_and_additional_notes_preserve_alignment():
+    expected = [
+        "C4", "D4", "E4", "F4", "G4"
+    ]
+
+    performed = [
+        "C4", "E4", "A4", "F4", "G4"
+    ]
+
+    result = compare_notes(expected, performed)
+
+    assert result["total_notes"] == 5
+    assert result["correct_notes"] == 4
+    assert result["accuracy"] == 80.0
+
+    assert result["errors"] == [
+        {
+            "note_index": 1,
+            "expected_note": "D4",
+            "performed_note": None,
+            "error_type": "missing_note"
+        },
+        {
+            "note_index": 3,
+            "expected_note": None,
+            "performed_note": "A4",
+            "error_type": "additional_note"
+        }
+    ]
