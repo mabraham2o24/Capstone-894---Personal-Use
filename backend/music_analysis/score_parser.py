@@ -32,11 +32,57 @@ def extract_expected_notes(file_path, part_index=0):
 
     return expected_notes
 
+def extract_notes_by_measure(
+    file_path,
+    start_measure,
+    end_measure,
+    part_index=0
+):
+    """
+    Extract expected notes from a selected range of measures.
+
+    Args:
+        file_path: Path to the MusicXML file.
+        start_measure: First measure number to include.
+        end_measure: Last measure number to include.
+        part_index: Zero-based index of the part to extract.
+                    Defaults to the first part.
+
+    Returns:
+        List of note names including octave.
+    """
+
+    score = converter.parse(file_path)
+
+    if part_index < 0 or part_index >= len(score.parts):
+        raise ValueError(
+            f"Invalid part index {part_index}. "
+            f"Score contains {len(score.parts)} parts."
+        )
+
+    if start_measure > end_measure:
+        raise ValueError(
+            "start_measure cannot be greater than end_measure."
+        )
+
+    part = score.parts[part_index]
+
+    expected_notes = []
+
+    for measure in part.getElementsByClass("Measure"):
+        if start_measure <= measure.number <= end_measure:
+            for element in measure.recurse().notes:
+                if element.isNote:
+                    expected_notes.append(
+                        element.pitch.nameWithOctave
+                    )
+
+    return expected_notes
 
 def extract_note_details(file_path, part_index=0):
     """
-    Extract pitch, duration, and offset information from one part
-    of a MusicXML score.
+    Extract pitch, duration, onset, measure, and beat information
+    from one part of a MusicXML score.
 
     Args:
         file_path: Path to the MusicXML file.
@@ -44,7 +90,8 @@ def extract_note_details(file_path, part_index=0):
                     Defaults to the first part.
 
     Returns:
-        List of dictionaries containing pitch, duration, and offset.
+        List of dictionaries containing pitch, duration, offset,
+        measure, and beat.
     """
 
     score = converter.parse(file_path)
@@ -59,15 +106,30 @@ def extract_note_details(file_path, part_index=0):
 
     note_details = []
 
-    for element in part.flatten().notes:
-        if element.isNote:
-            note_details.append(
-                {
-                    "pitch": element.pitch.nameWithOctave,
-                    "duration": float(element.duration.quarterLength),
-                    "offset": float(element.offset),
-                }
-            )
+    for measure in part.getElementsByClass("Measure"):
+        measure_offset = float(measure.offset)
+
+        for element in measure.recurse().notes:
+            if element.isNote:
+                offset_in_measure = float(
+                    element.getOffsetInHierarchy(measure)
+                )
+
+                note_details.append(
+                    {
+                        "pitch": element.pitch.nameWithOctave,
+                        "duration": float(
+                            element.duration.quarterLength
+                        ),
+                        "offset": measure_offset + offset_in_measure,
+                        "measure": measure.number,
+                        "beat": (
+                            float(element.beat)
+                            if element.beat is not None
+                            else None
+                        ),
+                    }
+                )
 
     return note_details
 

@@ -11,6 +11,106 @@ def is_valid_note_duration(duration):
     """
     return duration >= MIN_NOTE_DURATION
 
+def detect_silence_regions(
+    file_path,
+    silence_ratio=0.10,
+    min_silence_duration=0.30
+):
+    """
+    Detect sustained low-energy regions in an audio recording.
+
+    Silence is defined relative to the recording's median RMS energy
+    so that detection is less sensitive to overall recording volume.
+    """
+
+    audio, sample_rate = librosa.load(
+        file_path,
+        mono=True
+    )
+
+    audio, _ = librosa.effects.trim(
+        audio,
+        top_db=30
+    )
+
+    rms = librosa.feature.rms(
+        y=audio,
+        frame_length=2048,
+        hop_length=512
+    )[0]
+
+    if len(rms) == 0:
+        return []
+
+    median_rms = np.median(rms)
+
+    if median_rms <= 0:
+        return []
+
+    silence_threshold = (
+        median_rms * silence_ratio
+    )
+
+    silent_frames = rms < silence_threshold
+
+    silence_regions = []
+    start_frame = None
+
+    for frame_index, is_silent in enumerate(
+        silent_frames
+    ):
+        if is_silent and start_frame is None:
+            start_frame = frame_index
+
+        elif not is_silent and start_frame is not None:
+            start_time = librosa.frames_to_time(
+                start_frame,
+                sr=sample_rate,
+                hop_length=512
+            )
+
+            end_time = librosa.frames_to_time(
+                frame_index,
+                sr=sample_rate,
+                hop_length=512
+            )
+
+            duration = end_time - start_time
+
+            if duration >= min_silence_duration:
+                silence_regions.append({
+                    "start": round(float(start_time), 3),
+                    "end": round(float(end_time), 3),
+                    "duration": round(float(duration), 3)
+                })
+
+            start_frame = None
+
+    # Handle silence continuing through the final frame.
+    if start_frame is not None:
+        start_time = librosa.frames_to_time(
+            start_frame,
+            sr=sample_rate,
+            hop_length=512
+        )
+
+        end_time = librosa.get_duration(
+            y=audio,
+            sr=sample_rate
+        )
+
+        duration = end_time - start_time
+
+        if duration >= min_silence_duration:
+            silence_regions.append({
+                "start": round(float(start_time), 3),
+                "end": round(float(end_time), 3),
+                "duration": round(float(duration), 3)
+            })
+
+    return silence_regions
+
+
 def detect_note_events(file_path):
     """
     Detect individual note events in a monophonic audio recording.
