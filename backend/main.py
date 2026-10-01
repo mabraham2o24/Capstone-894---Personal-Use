@@ -15,15 +15,25 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from music21 import converter, tempo
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from database import Base, engine, get_db
 from models import PracticeSession
 from music_analysis.audio_pitch import detect_pitches
-from music_analysis.note_events import detect_note_events
+from music_analysis.note_events import (
+    detect_note_events,
+    detect_silence_regions,
+)
+from music_analysis.performance_analysis import analyze_performance
+from music_analysis.performance_segmentation import segment_performance
+from music_analysis.score_parser import (
+    extract_note_details,
+    extract_tempo,
+)
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -66,7 +76,7 @@ def create_session(db: Session = Depends(get_db)):
 @app.get("/sessions/{session_id}")
 def get_session(session_id: str, db: Session = Depends(get_db)):
     """Fetch a stored session - groundwork for US-20 (review practice history)."""
-    session = db.get(PracticeSession, session_id)
+    session = db.get(PracticeSession, UUID(session_id))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {
@@ -91,7 +101,7 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
     of US-03/US-04 (extracting pitches, durations, measures, tempo),
     now wired into US-01's session + persistent storage (AR-08).
     """
-    session = db.get(PracticeSession, session_id)
+    session = db.get(PracticeSession, UUID(session_id))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -109,12 +119,20 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
 
     try:
         score = converter.parse(tmp_path)
+
+        notes_info = extract_basic_info(score)
+
+        note_details = extract_note_details(tmp_path)
+        expected_notes = [note["pitch"] for note in note_details]
+
+        notes_info["note_details"] = note_details
+        notes_info["expected_notes"] = expected_notes
+        notes_info["tempo_bpm"] = extract_tempo(tmp_path)
+
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not parse MusicXML file: {exc}")
     finally:
         Path(tmp_path).unlink(missing_ok=True)
-
-    notes_info = extract_basic_info(score)
 
     session.score_filename = file.filename
     session.score_summary = notes_info
@@ -134,6 +152,8 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
 async def upload_audio(
     session_id: str,
     file: UploadFile = File(...),
+    start_measure: int | None = Form(None),
+    end_measure: int | None = Form(None),
     db: Session = Depends(get_db),
 ):
     """
@@ -142,7 +162,7 @@ async def upload_audio(
     Receive a WAV performance recording, analyze its pitches and
     note events, and store the analysis results on the practice session.
     """
-    session = db.get(PracticeSession, session_id)
+    session = db.get(PracticeSession, UUID(session_id))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -162,6 +182,65 @@ async def upload_audio(
     try:
         detected_pitches = detect_pitches(tmp_path)
         note_events = detect_note_events(tmp_path)
+        silence_regions = detect_silence_regions(tmp_path)
+
+        performance_analysis = None
+
+        if (
+            session.score_summary
+            and session.score_summary.get("note_details")
+        ):
+            all_expected_events = session.score_summary[
+                "note_details"
+            ]
+            
+        if (start_measure is None) != (end_measure is None):
+            raise ValueError(
+            "start_measure and end_measure must be provided together"
+        )
+
+        if start_measure is not None and end_measure is not None:
+            if start_measure > end_measure:
+                raise ValueError(
+                    "start_measure cannot be greater than end_measure"
+                )
+
+            expected_events = [
+                note
+                for note in all_expected_events
+                if start_measure
+                <= note["measure"]
+                <= end_measure
+            ]
+
+            if not expected_events:
+                raise ValueError(
+                    "No score notes found in the selected measure range"
+                )
+        else:
+            expected_events = all_expected_events
+
+        segmentation = segment_performance(
+            expected_events,
+            note_events,
+        )
+
+        performed_events = segmentation[
+            "performed_events"
+        ]
+
+        if performed_events:
+            performance_analysis = analyze_performance(
+                expected_events,
+                performed_events,
+                silence_regions=silence_regions,
+                seconds_per_beat=segmentation[
+                    "seconds_per_beat"
+                ],
+                performance_start=performed_events[0][
+                    "onset"
+                ],
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -184,6 +263,8 @@ async def upload_audio(
         "status": session.status,
         "detected_pitches": detected_pitches,
         "note_events": note_events,
+        "silence_regions": silence_regions,
+        "performance_analysis": performance_analysis,
     }
 
 

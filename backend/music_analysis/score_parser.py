@@ -81,8 +81,8 @@ def extract_notes_by_measure(
 
 def extract_note_details(file_path, part_index=0):
     """
-    Extract pitch, duration, and offset information from one part
-    of a MusicXML score.
+    Extract pitch, duration, onset, measure, and beat information
+    from one part of a MusicXML score.
 
     Args:
         file_path: Path to the MusicXML file.
@@ -90,7 +90,8 @@ def extract_note_details(file_path, part_index=0):
                     Defaults to the first part.
 
     Returns:
-        List of dictionaries containing pitch, duration, and offset.
+        List of dictionaries containing pitch, duration, offset,
+        measure, and beat.
     """
 
     score = converter.parse(file_path)
@@ -105,15 +106,30 @@ def extract_note_details(file_path, part_index=0):
 
     note_details = []
 
-    for element in part.flatten().notes:
-        if element.isNote:
-            note_details.append(
-                {
-                    "pitch": element.pitch.nameWithOctave,
-                    "duration": float(element.duration.quarterLength),
-                    "offset": float(element.offset),
-                }
-            )
+    for measure in part.getElementsByClass("Measure"):
+        measure_offset = float(measure.offset)
+
+        for element in measure.recurse().notes:
+            if element.isNote:
+                offset_in_measure = float(
+                    element.getOffsetInHierarchy(measure)
+                )
+
+                note_details.append(
+                    {
+                        "pitch": element.pitch.nameWithOctave,
+                        "duration": float(
+                            element.duration.quarterLength
+                        ),
+                        "offset": measure_offset + offset_in_measure,
+                        "measure": measure.number,
+                        "beat": (
+                            float(element.beat)
+                            if element.beat is not None
+                            else None
+                        ),
+                    }
+                )
 
     return note_details
 
