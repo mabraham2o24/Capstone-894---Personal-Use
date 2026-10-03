@@ -34,3 +34,5 @@ backend/test_audio/
 # Test coverage artifacts
 .coverage
 htmlcov/
+# Frontend test coverage reports
+coverage/
