@@ -224,8 +224,30 @@ def segment_performance(
             "event": expected,
         })
 
+    group_expected_counts = {}
+
+    for group_index, group in enumerate(groups):
+        count = 0
+
+        for expected_info in expected_targets:
+            expected = expected_info["event"]
+            target = expected_info["target"]
+
+            if expected["pitch"] != group["pitch"]:
+                continue
+
+            if _overlaps_window(
+                group,
+                target,
+                tolerance
+            ):
+                count += 1
+
+        group_expected_counts[group_index] = count
+
     performed_events = []
     matched_group_indices = set()
+    matched_raw_events = set()
     missing_expected_indices = []
 
     for expected_info in expected_targets:
@@ -260,6 +282,29 @@ def segment_performance(
 
             group = groups[best_group_index]
 
+            raw_candidates = []
+
+            for raw_index, raw_event in enumerate(
+                group["events"]
+            ):
+                raw_key = (
+                    best_group_index,
+                    raw_index
+                )
+
+                if raw_key in matched_raw_events:
+                    continue
+
+                raw_distance = abs(
+                    float(raw_event["onset"])
+                    - target
+                )
+
+                if raw_distance <= tolerance:
+                    raw_candidates.append(
+                        (raw_distance, raw_index, raw_event)
+                    )
+
             # A single acoustic group can legitimately cover two
             # expected occurrences of the same pitch. This happens
             # when an intervening expected note was skipped and the
@@ -268,23 +313,70 @@ def segment_performance(
             # In that situation we create a score-positioned musical
             # event rather than treating all of the raw fragments as
             # one musical note.
-            inferred = (
-                best_group_index in matched_group_indices
-                and group["pitch"] == expected["pitch"]
-            )
+            if raw_candidates:
+                (
+                    _,
+                    best_raw_index,
+                    best_raw_event,
+                ) = min(raw_candidates)
 
-            if inferred:
-                onset = target
+                onset = best_raw_event["onset"]
+                if (
+                    group_expected_counts[
+                        best_group_index
+                    ] == 1
+                ):
+                    measured_duration = (
+                        group["end"]
+                        - group["start"]
+                    )
+                else:
+                    measured_duration = (
+                        best_raw_event.get(
+                            "duration"
+                        )
+                    )
+
+                inferred = False
+
+                matched_raw_events.add(
+                    (best_group_index, best_raw_index)
+                )
             else:
-                onset = group["representative_onset"]
+                inferred = (
+                    best_group_index
+                    in matched_group_indices
+                )
+                if inferred:
+                    onset = target
+                    measured_duration = None
+                else:
+                    onset = group["representative_onset"]
+                    measured_duration = (group["end"] - group["start"])
 
             performed_events.append({
                 "pitch": expected["pitch"],
                 "onset": round(float(onset), 3),
+                "measured_onset": (
+                    None
+                    if inferred
+                    else round(
+                        float(group["start"]),
+                        3
+                    )
+                ),
                 "duration": round(
                     float(expected["duration"])
                     * seconds_per_beat,
                     3,
+                ),
+                "measured_duration": (
+                    None
+                    if measured_duration is None
+                    else round(
+                        float(measured_duration),
+                        3
+                    )
                 ),
                 "inferred": inferred,
                 "expected_index": expected_info["index"],

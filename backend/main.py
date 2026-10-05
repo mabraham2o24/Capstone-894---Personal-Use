@@ -34,6 +34,7 @@ from music_analysis.score_parser import (
     extract_note_details,
     extract_tempo,
 )
+from music_analysis.feedback_formatter import format_note_feedback
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -186,6 +187,8 @@ async def upload_audio(
 
         performance_analysis = None
 
+        note_feedback = []
+
         if (
             session.score_summary
             and session.score_summary.get("note_details")
@@ -193,6 +196,10 @@ async def upload_audio(
             all_expected_events = session.score_summary[
                 "note_details"
             ]
+        else:
+            raise ValueError(
+                "Upload a score before uploading audio"
+            )
             
         if (start_measure is None) != (end_measure is None):
             raise ValueError(
@@ -241,6 +248,11 @@ async def upload_audio(
                     "onset"
                 ],
             )
+
+            note_feedback = format_note_feedback(
+                expected_events, performance_analysis,
+            )
+            
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -265,6 +277,7 @@ async def upload_audio(
         "note_events": note_events,
         "silence_regions": silence_regions,
         "performance_analysis": performance_analysis,
+        "note_feedback": note_feedback,
     }
 
 
