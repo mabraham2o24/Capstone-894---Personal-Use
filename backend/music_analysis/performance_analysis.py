@@ -1,6 +1,7 @@
 from music_analysis.alignment import align_notes
 from music_analysis.timing_analysis import (
     analyze_missing_note_timing,
+    analyze_note_duration,
     compare_timing,
 )
 
@@ -54,11 +55,15 @@ def analyze_performance(
 
     timing_expected = []
     timing_performed = []
+    duration_analysis = []
 
     for item in alignment:
         operation = item["operation"]
 
         if operation == "match":
+            expected_event = expected_events[expected_index]
+            performed_event = performed_events[performed_index]
+            
             timing_expected.append(
                 expected_events[expected_index]
             )
@@ -66,14 +71,70 @@ def analyze_performance(
                 performed_events[performed_index]
             )
 
+            if seconds_per_beat is not None:
+                is_inferred = performed_event.get("inferred", False)
+
+                if not is_inferred:
+                    performed_duration=performed_event.get(
+                        "measured_duration",
+                    )
+
+                    if performed_duration is None:
+                        performed_duration = performed_event["duration"]
+                    
+                    duration_result = analyze_note_duration(
+                        expected_duration_beats=expected_event["duration"],
+                        performed_duration_seconds=performed_duration,
+                        seconds_per_beat=seconds_per_beat,
+                    )
+
+                    duration_analysis.append({
+                        "pitch": expected_event["pitch"],
+                        "measure": expected_event.get("measure"),
+                        "beat": expected_event.get("beat"),
+                        **duration_result,
+                    })
+    
+
             expected_index += 1
             performed_index += 1
 
         elif operation == "substitution":
+            expected_event = expected_events[expected_index]
+            performed_event = performed_events[performed_index]
+
+            if seconds_per_beat is not None:
+                is_inferred = performed_event.get("inferred", False)
+
+                if not is_inferred:
+                    performed_duration=performed_event.get(
+                        "measured_duration"
+                    )
+
+                    if performed_duration is None:
+                        performed_duration = performed_event["duration"]
+                
+                    duration_result = analyze_note_duration(
+                        expected_duration_beats=expected_event["duration"],
+                        performed_duration_seconds=performed_duration,
+                        seconds_per_beat=seconds_per_beat,
+                    )
+
+                    duration_analysis.append({
+                        "pitch": expected_event["pitch"],
+                        "measure": expected_event.get("measure"),
+                        "beat": expected_event.get("beat"),
+                        **duration_result,
+                    })
+
             incorrect_pitch.append({
                 "expected_note": item["expected_note"],
                 "performed_note": item["performed_note"],
                 "note_index": expected_index,
+                "measure": expected_event.get("measure"),
+                "beat": expected_event.get("beat"),
+                "expected_duration": expected_event["duration"],
+                "performed_duration": performed_event["duration"],
                 "error_type": "incorrect_pitch"
             })
 
@@ -88,20 +149,68 @@ def analyze_performance(
             performed_index += 1
 
         elif operation == "deletion":
+            expected_event = expected_events[expected_index]
             missing_notes.append({
                 "expected_note": item["expected_note"],
                 "note_index": expected_index,
+                "measure": expected_event.get("measure"),
+                "beat": expected_event.get("beat"),
+                "expected_duration": expected_event["duration"],
                 "error_type": "missing_note"
             })
 
             expected_index += 1
 
         elif operation == "insertion":
-            additional_notes.append({
+            performed_event = performed_events[performed_index]
+
+            additional_note = {
                 "performed_note": item["performed_note"],
                 "performed_index": performed_index,
+                "performed_duration": performed_event["duration"],
                 "error_type": "additional_note"
-            })
+            }
+
+            if (
+                seconds_per_beat is not None
+                and performance_start is not None
+            ):
+                relative_onset = (
+                    performed_event["onset"] - performance_start
+                )
+
+                score_offset = (
+                    expected_events[0]["offset"]
+                    + relative_onset / seconds_per_beat
+                )
+
+                # Find the score event immediately before the extra note.
+                previous_expected = None
+
+                for expected_event in expected_events:
+                    if expected_event["offset"] <= score_offset:
+                        previous_expected = expected_event
+                    else:
+                        break
+
+                if previous_expected is not None:
+                    beat_offset = (
+                        score_offset - previous_expected["offset"]
+                    )
+
+                    additional_note["measure"] = (
+                        previous_expected.get("measure")
+                    )
+
+                    previous_beat = previous_expected.get("beat")
+
+                    additional_note["beat"] = (
+                        round(previous_beat + beat_offset, 2)
+                        if previous_beat is not None
+                        else None
+                    )
+
+            additional_notes.append(additional_note)
 
             performed_index += 1
 
@@ -142,5 +251,6 @@ def analyze_performance(
             "additional_notes": additional_notes
         },
         "timing": timing,
-        "missing_note_timing": missing_note_timing
+        "missing_note_timing": missing_note_timing,
+        "duration_analysis": duration_analysis,
     }
