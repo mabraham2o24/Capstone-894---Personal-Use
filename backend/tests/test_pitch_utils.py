@@ -34,3 +34,27 @@ def test_octave_pitch_distance():
 def test_invalid_note_raises_error():
     with pytest.raises(ValueError):
         note_to_midi("H4")
+
+def test_flat_note_to_midi():
+    """music21 represents flats using '-'."""
+    assert note_to_midi("D-4") == 61
+    assert note_to_midi("E-4") == 63
+    assert note_to_midi("G-4") == 66
+    assert note_to_midi("A-4") == 68
+    assert note_to_midi("B-4") == 70
+
+
+def test_enharmonic_pitch_distance():
+    """Enharmonic sharp/flat spellings should represent the same pitch."""
+    assert pitch_distance("C#4", "D-4") == 0
+    assert pitch_distance("D#4", "E-4") == 0
+    assert pitch_distance("F#4", "G-4") == 0
+    assert pitch_distance("G#4", "A-4") == 0
+    assert pitch_distance("A#4", "B-4") == 0
+
+
+def test_enharmonic_pitches_across_octaves():
+    """Enharmonic handling should not be limited to octave 4."""
+    assert pitch_distance("C#3", "D-3") == 0
+    assert pitch_distance("F#5", "G-5") == 0
+    assert pitch_distance("A#6", "B-6") == 0
