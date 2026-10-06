@@ -5,6 +5,53 @@ from music_analysis.timing_analysis import (
     compare_timing,
 )
 
+def calculate_pitch_accuracy(alignment):
+    """
+    Calculate pitch accuracy from aligned expected and performed notes.
+
+    Returns individual pitch results for each expected note and an
+    overall pitch-accuracy percentage.
+
+    Substitutions and deletions reduce pitch accuracy.
+    Insertions do not affect the metric because they do not correspond
+    to an expected score note.
+    """
+    note_results = []
+    correct_notes = 0
+
+    for item in alignment:
+        # Additional performed notes do not correspond to an expected note.
+        if item["operation"] == "insertion":
+            continue
+
+        pitch_correct = item["operation"] == "match"
+
+        if pitch_correct:
+            correct_notes += 1
+
+        note_results.append({
+            "note_index": len(note_results),
+            "expected_pitch": item["expected_note"],
+            "performed_pitch": item["performed_note"],
+            "pitch_correct": pitch_correct,
+        })
+
+    total_expected_notes = len(note_results)
+
+    if total_expected_notes == 0:
+        accuracy_percent = 0.0
+    else:
+        accuracy_percent = round(
+            (correct_notes / total_expected_notes) * 100,
+            2
+        )
+
+    return {
+        "correct_notes": correct_notes,
+        "total_expected_notes": total_expected_notes,
+        "accuracy_percent": accuracy_percent,
+        "note_results": note_results,
+    }
 
 def analyze_performance(
         expected_events, 
@@ -243,6 +290,8 @@ def analyze_performance(
             performance_start,
         )
 
+    pitch_accuracy = calculate_pitch_accuracy(alignment)
+
     return {
         "alignment": alignment,
         "errors": {
@@ -250,6 +299,7 @@ def analyze_performance(
             "missing_notes": missing_notes,
             "additional_notes": additional_notes
         },
+        "pitch_accuracy": pitch_accuracy,
         "timing": timing,
         "missing_note_timing": missing_note_timing,
         "duration_analysis": duration_analysis,

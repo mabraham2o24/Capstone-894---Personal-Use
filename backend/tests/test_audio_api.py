@@ -527,3 +527,74 @@ def test_upload_audio_returns_note_feedback():
     assert shortened_a4["expected_note_length"] == "quarter note"
     assert shortened_a4["played_note_length"] == "sixteenth note"
     assert shortened_a4["duration_status"] == "too_short"
+
+def test_upload_audio_returns_pitch_accuracy():
+    response = client.post("/sessions")
+    assert response.status_code == 200
+
+    session_id = response.json()["session_id"]
+
+    score_path = Path(
+        "test_music/Canon_in_D/canon-in-d.mxl"
+    )
+
+    with score_path.open("rb") as score_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-score",
+            files={
+                "file": (
+                    score_path.name,
+                    score_file,
+                    "application/octet-stream",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    audio_path = Path(
+        "test_music/Canon_in_D/performances/"
+        "canon_measures_3_6_incorrect_pitch.wav"
+    )
+
+    with audio_path.open("rb") as audio_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-audio",
+            data={
+                "start_measure": "3",
+                "end_measure": "6",
+            },
+            files={
+                "file": (
+                    audio_path.name,
+                    audio_file,
+                    "audio/wav",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    analysis = response.json()["performance_analysis"]
+
+    pitch_accuracy = analysis["pitch_accuracy"]
+
+    assert pitch_accuracy["correct_notes"] == 15
+    assert pitch_accuracy["total_expected_notes"] == 16
+    assert pitch_accuracy["accuracy_percent"] == 93.75
+    assert len(pitch_accuracy["note_results"]) == 16
+
+    incorrect_pitch_result = pitch_accuracy["note_results"][7]
+
+    assert incorrect_pitch_result == {
+        "note_index": 7,
+        "expected_pitch": "C#5",
+        "performed_pitch": "C5",
+        "pitch_correct": False,
+    }
+    incorrect_note = analysis["errors"]["incorrect_pitch"][0]
+
+    assert incorrect_note["expected_note"] == "C#5"
+    assert incorrect_note["performed_note"] == "C5"
+    assert incorrect_note["measure"] == 4
+    assert incorrect_note["beat"] == 4.0
