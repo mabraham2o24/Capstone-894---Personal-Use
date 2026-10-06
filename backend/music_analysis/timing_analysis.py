@@ -188,20 +188,25 @@ def compare_timing(
                 expected_interval_beats * seconds_per_beat
             )
 
-            current_onset = performed.get(
-                "measured_onset"
+            current_measured = performed.get("measured_onset")
+            previous_measured = previous_performed.get("measured_onset")
+
+            # Use segmented onsets when the measured onsets cannot
+            # represent a reliable interval between these two notes.
+            use_segmented_onsets = (
+                current_measured is None
+                or previous_measured is None
+                or performed.get("inferred", False)
+                or previous_performed.get("inferred", False)
+                or current_measured == previous_measured
             )
 
-            if current_onset is None:
+            if use_segmented_onsets:
                 current_onset = performed["onset"]
-
-            previous_onset = previous_performed.get(
-                "measured_onset"
-            )
-
-            if previous_onset is None:
                 previous_onset = previous_performed["onset"]
-
+            else:
+                current_onset = current_measured
+                previous_onset = previous_measured
             performed_interval = (
                 current_onset - previous_onset
             )

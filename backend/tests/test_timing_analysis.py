@@ -442,3 +442,92 @@ def test_compare_timing_prefers_measured_onset():
         result["results"][1]["performed_interval"]
         == 1.0
     )
+
+def test_compare_timing_uses_segmented_onset_for_repeated_notes():
+    expected = [
+        {"pitch": "A4", "offset": 0.0},
+        {"pitch": "A4", "offset": 0.5},
+        {"pitch": "A4", "offset": 1.0},
+        {"pitch": "B-4", "offset": 1.5},
+    ]
+
+    performed = [
+        {
+            "pitch": "A4",
+            "onset": 0.0,
+            "measured_onset": 0.0,
+        },
+        {
+            "pitch": "A4",
+            "onset": 0.25,
+            "measured_onset": 0.0,
+        },
+        {
+            "pitch": "A4",
+            "onset": 0.50,
+            "measured_onset": None,
+            "inferred": True,
+        },
+        {
+            "pitch": "A#4",
+            "onset": 0.75,
+            "measured_onset": 0.75,
+        },
+    ]
+
+    result = compare_timing(
+        expected,
+        performed,
+        tolerance_ratio=0.20,
+    )
+
+    assert [
+        note["performed_interval"]
+        for note in result["results"]
+    ] == [0.0, 0.25, 0.25, 0.25]
+
+    assert all(
+        note["timing"] == "on_time"
+        for note in result["results"]
+    )
+
+def test_compare_timing_uses_consistent_onsets_after_repeated_notes():
+    expected = [
+        {"pitch": "A4", "offset": 0.0},
+        {"pitch": "A4", "offset": 0.5},
+        {"pitch": "B-4", "offset": 1.0},
+    ]
+
+    performed = [
+        {
+            "pitch": "A4",
+            "onset": 0.0,
+            "measured_onset": 0.0,
+        },
+        {
+            "pitch": "A4",
+            "onset": 0.25,
+            "measured_onset": 0.0,
+        },
+        {
+            "pitch": "A#4",
+            "onset": 0.50,
+            "measured_onset": None,
+        },
+    ]
+
+    result = compare_timing(
+        expected,
+        performed,
+        tolerance_ratio=0.20,
+    )
+
+    assert [
+        note["performed_interval"]
+        for note in result["results"]
+    ] == [0.0, 0.25, 0.25]
+
+    assert all(
+        note["timing"] == "on_time"
+        for note in result["results"]
+    )
