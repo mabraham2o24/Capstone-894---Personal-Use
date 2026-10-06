@@ -5,6 +5,43 @@ from music_analysis.timing_analysis import (
     compare_timing,
 )
 
+def calculate_pitch_accuracy(alignment):
+    """
+    Calculate pitch accuracy from aligned expected and performed notes.
+
+    Pitch accuracy is the percentage of expected notes that were
+    performed with the correct pitch.
+
+    Substitutions and deletions reduce pitch accuracy.
+    Insertions do not affect the metric because they do not correspond
+    to an expected score note.
+    """
+
+    total_expected_notes = sum(
+        1
+        for item in alignment
+        if item["operation"] != "insertion"
+    )
+
+    correct_notes = sum(
+        1
+        for item in alignment
+        if item["operation"] == "match"
+    )
+
+    if total_expected_notes == 0:
+        accuracy_percent = 0.0
+    else:
+        accuracy_percent = round(
+            (correct_notes / total_expected_notes) * 100,
+            2
+        )
+
+    return {
+        "correct_notes": correct_notes,
+        "total_expected_notes": total_expected_notes,
+        "accuracy_percent": accuracy_percent,
+    }
 
 def analyze_performance(
         expected_events, 
@@ -243,6 +280,8 @@ def analyze_performance(
             performance_start,
         )
 
+    pitch_accuracy = calculate_pitch_accuracy(alignment)
+
     return {
         "alignment": alignment,
         "errors": {
@@ -250,6 +289,7 @@ def analyze_performance(
             "missing_notes": missing_notes,
             "additional_notes": additional_notes
         },
+        "pitch_accuracy": pitch_accuracy,
         "timing": timing,
         "missing_note_timing": missing_note_timing,
         "duration_analysis": duration_analysis,

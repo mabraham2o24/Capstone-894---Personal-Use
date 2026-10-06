@@ -1,6 +1,9 @@
 from dbm import error
 
-from music_analysis.performance_analysis import analyze_performance
+from music_analysis.performance_analysis import (
+    analyze_performance,
+    calculate_pitch_accuracy,
+)
 
 
 def make_expected(pitches):
@@ -558,3 +561,116 @@ def test_real_audio_detects_long_note_duration():
     assert target["expected_note_length"] == "quarter note"
     assert target["played_note_length"] == "half note"
     assert target["duration_status"] == "too_long"
+
+def test_pitch_accuracy_perfect_performance():
+    alignment = [
+        {"operation": "match"},
+        {"operation": "match"},
+        {"operation": "match"},
+        {"operation": "match"},
+    ]
+
+    result = calculate_pitch_accuracy(alignment)
+
+    assert result["correct_notes"] == 4
+    assert result["total_expected_notes"] == 4
+    assert result["accuracy_percent"] == 100.0
+
+
+def test_pitch_accuracy_with_incorrect_pitch():
+    alignment = [
+        {"operation": "match"},
+        {"operation": "match"},
+        {"operation": "substitution"},
+        {"operation": "match"},
+    ]
+
+    result = calculate_pitch_accuracy(alignment)
+
+    assert result["correct_notes"] == 3
+    assert result["total_expected_notes"] == 4
+    assert result["accuracy_percent"] == 75.0
+
+
+def test_pitch_accuracy_with_missing_note():
+    alignment = [
+        {"operation": "match"},
+        {"operation": "deletion"},
+        {"operation": "match"},
+        {"operation": "match"},
+    ]
+
+    result = calculate_pitch_accuracy(alignment)
+
+    assert result["correct_notes"] == 3
+    assert result["total_expected_notes"] == 4
+    assert result["accuracy_percent"] == 75.0
+
+
+def test_pitch_accuracy_additional_note_does_not_reduce_accuracy():
+    alignment = [
+        {"operation": "match"},
+        {"operation": "match"},
+        {"operation": "insertion"},
+        {"operation": "match"},
+        {"operation": "match"},
+    ]
+
+    result = calculate_pitch_accuracy(alignment)
+
+    assert result["correct_notes"] == 4
+    assert result["total_expected_notes"] == 4
+    assert result["accuracy_percent"] == 100.0
+
+def test_analyze_performance_includes_pitch_accuracy():
+    expected = [
+        {
+            "pitch": "C4",
+            "offset": 0.0,
+            "duration": 1.0,
+        },
+        {
+            "pitch": "D4",
+            "offset": 1.0,
+            "duration": 1.0,
+        },
+        {
+            "pitch": "E4",
+            "offset": 2.0,
+            "duration": 1.0,
+        },
+        {
+            "pitch": "F4",
+            "offset": 3.0,
+            "duration": 1.0,
+        },
+    ]
+
+    performed = [
+        {
+            "pitch": "C4",
+            "onset": 0.0,
+            "duration": 1.0,
+        },
+        {
+            "pitch": "D4",
+            "onset": 1.0,
+            "duration": 1.0,
+        },
+        {
+            "pitch": "F#4",
+            "onset": 2.0,
+            "duration": 1.0,
+        },
+        {
+            "pitch": "F4",
+            "onset": 3.0,
+            "duration": 1.0,
+        },
+    ]
+
+    result = analyze_performance(expected, performed)
+
+    assert result["pitch_accuracy"]["correct_notes"] == 3
+    assert result["pitch_accuracy"]["total_expected_notes"] == 4
+    assert result["pitch_accuracy"]["accuracy_percent"] == 75.0
