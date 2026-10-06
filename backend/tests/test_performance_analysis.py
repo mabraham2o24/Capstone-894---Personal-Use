@@ -564,10 +564,10 @@ def test_real_audio_detects_long_note_duration():
 
 def test_pitch_accuracy_perfect_performance():
     alignment = [
-        {"operation": "match"},
-        {"operation": "match"},
-        {"operation": "match"},
-        {"operation": "match"},
+        {"expected_note": "C4", "performed_note": "C4", "operation": "match"},
+        {"expected_note": "D4", "performed_note": "D4", "operation": "match"},
+        {"expected_note": "E4", "performed_note": "E4", "operation": "match"},
+        {"expected_note": "F4", "performed_note": "F4", "operation": "match"},
     ]
 
     result = calculate_pitch_accuracy(alignment)
@@ -579,10 +579,10 @@ def test_pitch_accuracy_perfect_performance():
 
 def test_pitch_accuracy_with_incorrect_pitch():
     alignment = [
-        {"operation": "match"},
-        {"operation": "match"},
-        {"operation": "substitution"},
-        {"operation": "match"},
+        {"expected_note": "C4", "performed_note": "C4", "operation": "match"},
+        {"expected_note": "D4", "performed_note": "D4", "operation": "match"},
+        {"expected_note": "E4", "performed_note": "F4", "operation": "substitution"},
+        {"expected_note": "F4", "performed_note": "F4", "operation": "match"},
     ]
 
     result = calculate_pitch_accuracy(alignment)
@@ -591,13 +591,12 @@ def test_pitch_accuracy_with_incorrect_pitch():
     assert result["total_expected_notes"] == 4
     assert result["accuracy_percent"] == 75.0
 
-
 def test_pitch_accuracy_with_missing_note():
     alignment = [
-        {"operation": "match"},
-        {"operation": "deletion"},
-        {"operation": "match"},
-        {"operation": "match"},
+        {"expected_note": "C4", "performed_note": "C4", "operation": "match"},
+        {"expected_note": "D4", "performed_note": None, "operation": "deletion"},
+        {"expected_note": "E4", "performed_note": "E4", "operation": "match"},
+        {"expected_note": "F4", "performed_note": "F4", "operation": "match"},
     ]
 
     result = calculate_pitch_accuracy(alignment)
@@ -609,11 +608,11 @@ def test_pitch_accuracy_with_missing_note():
 
 def test_pitch_accuracy_additional_note_does_not_reduce_accuracy():
     alignment = [
-        {"operation": "match"},
-        {"operation": "match"},
-        {"operation": "insertion"},
-        {"operation": "match"},
-        {"operation": "match"},
+        {"expected_note": "C4", "performed_note": "C4", "operation": "match"},
+        {"expected_note": "D4", "performed_note": "D4", "operation": "match"},
+        {"expected_note": None, "performed_note": "D#4", "operation": "insertion"},
+        {"expected_note": "E4", "performed_note": "E4", "operation": "match"},
+        {"expected_note": "F4", "performed_note": "F4", "operation": "match"},
     ]
 
     result = calculate_pitch_accuracy(alignment)
@@ -674,3 +673,45 @@ def test_analyze_performance_includes_pitch_accuracy():
     assert result["pitch_accuracy"]["correct_notes"] == 3
     assert result["pitch_accuracy"]["total_expected_notes"] == 4
     assert result["pitch_accuracy"]["accuracy_percent"] == 75.0
+
+def test_pitch_accuracy_includes_individual_note_results():
+    alignment = [
+        {
+            "expected_note": "C4",
+            "performed_note": "C4",
+            "operation": "match",
+        },
+        {
+            "expected_note": "D4",
+            "performed_note": "D#4",
+            "operation": "substitution",
+        },
+        {
+            "expected_note": "E4",
+            "performed_note": None,
+            "operation": "deletion",
+        },
+    ]
+
+    result = calculate_pitch_accuracy(alignment)
+
+    assert result["note_results"] == [
+        {
+            "note_index": 0,
+            "expected_pitch": "C4",
+            "performed_pitch": "C4",
+            "pitch_correct": True,
+        },
+        {
+            "note_index": 1,
+            "expected_pitch": "D4",
+            "performed_pitch": "D#4",
+            "pitch_correct": False,
+        },
+        {
+            "note_index": 2,
+            "expected_pitch": "E4",
+            "performed_pitch": None,
+            "pitch_correct": False,
+        },
+    ]

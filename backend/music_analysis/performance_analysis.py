@@ -9,25 +9,34 @@ def calculate_pitch_accuracy(alignment):
     """
     Calculate pitch accuracy from aligned expected and performed notes.
 
-    Pitch accuracy is the percentage of expected notes that were
-    performed with the correct pitch.
+    Returns individual pitch results for each expected note and an
+    overall pitch-accuracy percentage.
 
     Substitutions and deletions reduce pitch accuracy.
     Insertions do not affect the metric because they do not correspond
     to an expected score note.
     """
+    note_results = []
+    correct_notes = 0
 
-    total_expected_notes = sum(
-        1
-        for item in alignment
-        if item["operation"] != "insertion"
-    )
+    for item in alignment:
+        # Additional performed notes do not correspond to an expected note.
+        if item["operation"] == "insertion":
+            continue
 
-    correct_notes = sum(
-        1
-        for item in alignment
-        if item["operation"] == "match"
-    )
+        pitch_correct = item["operation"] == "match"
+
+        if pitch_correct:
+            correct_notes += 1
+
+        note_results.append({
+            "note_index": len(note_results),
+            "expected_pitch": item["expected_note"],
+            "performed_pitch": item["performed_note"],
+            "pitch_correct": pitch_correct,
+        })
+
+    total_expected_notes = len(note_results)
 
     if total_expected_notes == 0:
         accuracy_percent = 0.0
@@ -41,6 +50,7 @@ def calculate_pitch_accuracy(alignment):
         "correct_notes": correct_notes,
         "total_expected_notes": total_expected_notes,
         "accuracy_percent": accuracy_percent,
+        "note_results": note_results,
     }
 
 def analyze_performance(
