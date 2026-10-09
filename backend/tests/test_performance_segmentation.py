@@ -258,3 +258,41 @@ def test_segmented_event_preserves_measured_onset():
 
     assert first["pitch"] == "C4"
     assert first["measured_onset"] == 0.0
+
+def test_repeated_pitch_events_preserve_distinct_measured_onsets():
+    """
+    Separate occurrences of the same pitch must retain their
+    individual measured onsets, even when acoustic grouping
+    combines their raw events.
+    """
+    from music_analysis.performance_segmentation import segment_performance
+
+    expected = [
+        {"pitch": "B4", "offset": 0.0, "duration": 1.0},
+        {"pitch": "A4", "offset": 1.0, "duration": 1.0},
+        {"pitch": "B4", "offset": 2.0, "duration": 1.0},
+        {"pitch": "C5", "offset": 3.0, "duration": 1.0},
+    ]
+
+    detected = [
+        {"pitch": "B4", "onset": 0.0, "duration": 0.3},
+        {"pitch": "B4", "onset": 0.3, "duration": 0.5},
+        {"pitch": "B4", "onset": 1.8, "duration": 0.5},
+        {"pitch": "C5", "onset": 3.0, "duration": 0.5},
+    ]
+
+    result = segment_performance(expected, detected)
+
+    b4_events = [
+        event
+        for event in result["performed_events"]
+        if event["pitch"] == "B4"
+        and event.get("expected_index") in (0, 2)
+    ]
+
+    assert len(b4_events) == 2
+
+    assert b4_events[0]["measured_onset"] != b4_events[1]["measured_onset"]
+
+    for event in b4_events:
+        assert event["measured_onset"] == event["onset"]

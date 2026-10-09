@@ -360,10 +360,7 @@ def segment_performance(
                 "measured_onset": (
                     None
                     if inferred
-                    else round(
-                        float(group["start"]),
-                        3
-                    )
+                    else round(float(onset), 3)
                 ),
                 "duration": round(
                     float(expected["duration"])
