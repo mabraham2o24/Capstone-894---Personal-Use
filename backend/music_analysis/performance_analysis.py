@@ -54,6 +54,46 @@ def calculate_pitch_accuracy(alignment):
         "note_results": note_results,
     }
 
+def calculate_note_sequence_accuracy(alignment):
+    """
+    Calculate note-sequence accuracy, including extra notes.
+
+    Matches count as correct.
+    Substitutions, deletions, and insertions reduce accuracy.
+    """
+    correct_notes = sum(
+        1 for item in alignment
+        if item["operation"] == "match"
+    )
+
+    expected_notes = sum(
+        1 for item in alignment
+        if item["operation"] != "insertion"
+    )
+
+    additional_notes = sum(
+        1 for item in alignment
+        if item["operation"] == "insertion"
+    )
+
+    total_notes = expected_notes + additional_notes
+
+    if total_notes == 0:
+        accuracy_percent = 0.0
+    else:
+        accuracy_percent = round(
+            (correct_notes / total_notes) * 100,
+            2
+        )
+
+    return {
+        "correct_notes": correct_notes,
+        "total_expected_notes": expected_notes,
+        "additional_notes": additional_notes,
+        "total_notes": total_notes,
+        "accuracy_percent": accuracy_percent,
+    }
+
 def analyze_performance(
         expected_events,
         performed_events,
@@ -358,6 +398,7 @@ def analyze_performance(
         ]
 
     pitch_accuracy = calculate_pitch_accuracy(alignment)
+    note_sequence_accuracy = calculate_note_sequence_accuracy(alignment)
 
     return {
         "alignment": alignment,
@@ -367,6 +408,7 @@ def analyze_performance(
             "additional_notes": additional_notes
         },
         "pitch_accuracy": pitch_accuracy,
+        "note_sequence_accuracy": note_sequence_accuracy,
         "timing": timing,
         "missing_note_timing": missing_note_timing,
         "duration_analysis": duration_analysis,

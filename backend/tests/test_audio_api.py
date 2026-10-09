@@ -579,11 +579,20 @@ def test_upload_audio_returns_pitch_accuracy():
     analysis = response.json()["performance_analysis"]
 
     pitch_accuracy = analysis["pitch_accuracy"]
+    
 
     assert pitch_accuracy["correct_notes"] == 15
     assert pitch_accuracy["total_expected_notes"] == 16
     assert pitch_accuracy["accuracy_percent"] == 93.75
     assert len(pitch_accuracy["note_results"]) == 16
+
+    sequence_accuracy = analysis["note_sequence_accuracy"]
+
+    assert sequence_accuracy["correct_notes"] == 15
+    assert sequence_accuracy["total_expected_notes"] == 16
+    assert sequence_accuracy["additional_notes"] == 0
+    assert sequence_accuracy["total_notes"] == 16
+    assert sequence_accuracy["accuracy_percent"] == 93.75
 
     incorrect_pitch_result = pitch_accuracy["note_results"][7]
 

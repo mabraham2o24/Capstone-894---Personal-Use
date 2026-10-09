@@ -3,6 +3,7 @@ from dbm import error
 from music_analysis.performance_analysis import (
     analyze_performance,
     calculate_pitch_accuracy,
+    calculate_note_sequence_accuracy,
 )
 
 
@@ -715,3 +716,56 @@ def test_pitch_accuracy_includes_individual_note_results():
             "pitch_correct": False,
         },
     ]
+
+def test_note_sequence_accuracy_all_correct():
+    alignment = [{"operation": "match"}] * 16
+
+    result = calculate_note_sequence_accuracy(alignment)
+
+    assert result["accuracy_percent"] == 100.0
+    assert result["correct_notes"] == 16
+    assert result["additional_notes"] == 0
+
+
+def test_note_sequence_accuracy_extra_note():
+    alignment = (
+        [{"operation": "match"}] * 16
+        + [{"operation": "insertion"}]
+    )
+
+    result = calculate_note_sequence_accuracy(alignment)
+
+    assert result["accuracy_percent"] == 94.12
+    assert result["total_notes"] == 17
+    assert result["additional_notes"] == 1
+
+
+def test_note_sequence_accuracy_missing_note():
+    alignment = (
+        [{"operation": "match"}] * 15
+        + [{"operation": "deletion"}]
+    )
+
+    result = calculate_note_sequence_accuracy(alignment)
+
+    assert result["accuracy_percent"] == 93.75
+    assert result["total_expected_notes"] == 16
+
+
+def test_note_sequence_accuracy_incorrect_pitch():
+    alignment = (
+        [{"operation": "match"}] * 15
+        + [{"operation": "substitution"}]
+    )
+
+    result = calculate_note_sequence_accuracy(alignment)
+
+    assert result["accuracy_percent"] == 93.75
+    assert result["correct_notes"] == 15
+
+
+def test_note_sequence_accuracy_empty_alignment():
+    result = calculate_note_sequence_accuracy([])
+
+    assert result["accuracy_percent"] == 0.0
+    assert result["total_notes"] == 0
