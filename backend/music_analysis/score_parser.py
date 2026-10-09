@@ -159,3 +159,50 @@ def extract_tempo(file_path):
         return None
 
     return float(bpm)
+
+
+def extract_rest_details(file_path, part_index=0):
+    """
+    Extract written rests from one part of a MusicXML score.
+
+    Returns a list of dictionaries containing:
+        - offset: absolute position in quarter-note beats
+        - duration: length in quarter-note beats
+        - measure: measure number
+        - beat: beat position within the measure
+    """
+
+    score = converter.parse(file_path)
+
+    if part_index < 0 or part_index >= len(score.parts):
+        raise ValueError(
+            f"Invalid part index {part_index}. "
+            f"Score contains {len(score.parts)} parts."
+        )
+
+    part = score.parts[part_index]
+
+    rest_details = []
+
+    for measure in part.getElementsByClass("Measure"):
+        measure_offset = float(measure.offset)
+
+        for element in measure.recurse().getElementsByClass("Rest"):
+            offset_in_measure = float(
+                element.getOffsetInHierarchy(measure)
+            )
+
+            rest_details.append({
+                "offset": measure_offset + offset_in_measure,
+                "duration": float(
+                    element.duration.quarterLength
+                ),
+                "measure": measure.number,
+                "beat": (
+                    float(element.beat)
+                    if element.beat is not None
+                    else None
+                ),
+            })
+
+    return rest_details

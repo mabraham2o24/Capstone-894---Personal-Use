@@ -1,4 +1,5 @@
 from music_analysis.feedback_formatter import format_note_feedback
+import pytest
 
 
 def test_format_note_feedback_for_correct_note():
@@ -192,6 +193,8 @@ def test_format_note_feedback_for_missing_note():
             "played_note_length": None,
             "duration_status": None,
             "timing_status": None,
+            "missing_note_behavior": "unknown",
+            "missing_note_pause_duration": None,
         }
     ]
 
@@ -373,3 +376,88 @@ def test_format_note_feedback_handles_mixed_alignment_operations():
     assert result[3]["pitch_status"] == "missing"
     assert result[3]["measure"] == 1
     assert result[3]["beat"] == 3.0
+
+@pytest.mark.parametrize(
+    "local_pause,expected_behavior",
+    [
+        (True, "paused"),
+        (False, "continued"),
+        (None, "unknown"),
+    ],
+)
+def test_missing_note_behavior_from_local_analysis(
+    local_pause,
+    expected_behavior,
+):
+    expected = [
+        {
+            "pitch": "E4",
+            "offset": 0.0,
+            "duration": 0.5,
+            "measure": 2,
+            "beat": 1.5,
+        }
+    ]
+
+    analysis = {
+        "alignment": [
+            {
+                "expected_note": "E4",
+                "performed_note": None,
+                "operation": "deletion",
+            }
+        ],
+        "timing": None,
+        "duration_analysis": [],
+        "errors": {"additional_notes": []},
+        "missing_note_timing": [
+            {
+                "expected_index": 0,
+                "pitch": "E4",
+                "local_pause_detected": local_pause,
+                "local_quiet_duration": (
+                    0.14 if local_pause else 0.0
+                ),
+            }
+        ],
+    }
+
+    feedback = format_note_feedback(expected, analysis)
+
+    assert len(feedback) == 1
+    assert feedback[0]["pitch_status"] == "missing"
+    assert (
+        feedback[0]["missing_note_behavior"]
+        == expected_behavior
+    )
+
+
+def test_missing_note_unknown_when_local_analysis_unavailable():
+    expected = [
+        {
+            "pitch": "E4",
+            "offset": 0.0,
+            "duration": 0.5,
+            "measure": 2,
+            "beat": 1.5,
+        }
+    ]
+
+    analysis = {
+        "alignment": [
+            {
+                "expected_note": "E4",
+                "performed_note": None,
+                "operation": "deletion",
+            }
+        ],
+        "timing": None,
+        "duration_analysis": [],
+        "errors": {"additional_notes": []},
+        "missing_note_timing": [],
+    }
+
+    feedback = format_note_feedback(expected, analysis)
+
+    assert feedback[0]["missing_note_behavior"] == "unknown"
+    assert feedback[0]["missing_note_pause_duration"] is None

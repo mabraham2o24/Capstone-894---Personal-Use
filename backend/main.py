@@ -32,6 +32,7 @@ from music_analysis.performance_analysis import analyze_performance
 from music_analysis.performance_segmentation import segment_performance
 from music_analysis.score_parser import (
     extract_note_details,
+    extract_rest_details,
     extract_tempo,
 )
 from music_analysis.feedback_formatter import format_note_feedback
@@ -124,9 +125,12 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
         notes_info = extract_basic_info(score)
 
         note_details = extract_note_details(tmp_path)
+        rest_details = extract_rest_details(tmp_path)
+
         expected_notes = [note["pitch"] for note in note_details]
 
         notes_info["note_details"] = note_details
+        notes_info["rest_details"] = rest_details
         notes_info["expected_notes"] = expected_notes
         notes_info["tempo_bpm"] = extract_tempo(tmp_path)
 
@@ -196,6 +200,11 @@ async def upload_audio(
             all_expected_events = session.score_summary[
                 "note_details"
             ]
+            rest_details = session.score_summary.get(
+                "rest_details",
+                []
+            )
+
         else:
             raise ValueError(
                 "Upload a score before uploading audio"
@@ -237,6 +246,15 @@ async def upload_audio(
         ]
 
         if performed_events:
+            first_event = performed_events[0]
+
+            performance_start = first_event.get(
+                "measured_onset"
+            )
+
+            if performance_start is None:
+                performance_start = first_event["onset"]
+
             performance_analysis = analyze_performance(
                 expected_events,
                 performed_events,
@@ -244,9 +262,9 @@ async def upload_audio(
                 seconds_per_beat=segmentation[
                     "seconds_per_beat"
                 ],
-                performance_start=performed_events[0][
-                    "onset"
-                ],
+                performance_start=performance_start,
+                audio_path=tmp_path,
+                rest_details=rest_details,
             )
 
             note_feedback = format_note_feedback(

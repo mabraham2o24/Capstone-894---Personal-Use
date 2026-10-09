@@ -18,6 +18,10 @@ def format_note_feedback(expected_events, analysis):
         "duration_analysis",
         []
     )
+    missing_timing_by_index = {
+        result["expected_index"]: result
+        for result in analysis.get("missing_note_timing", [])
+    }
 
     expected_index = 0
     performed_index = 0
@@ -100,6 +104,29 @@ def format_note_feedback(expected_events, analysis):
         elif operation == "deletion":
             expected_event = expected_events[expected_index]
 
+            missing_timing = missing_timing_by_index.get(
+                expected_index,
+                {}
+            )
+
+            # Prefer local acoustic evidence when available.
+            # An uncertain local result must remain uncertain.
+            if "local_pause_detected" in missing_timing:
+                pause_detected = missing_timing[
+                    "local_pause_detected"
+                ]
+            else:
+                pause_detected = missing_timing.get(
+                    "pause_detected"
+                )
+
+            if pause_detected is True:
+                missing_note_behavior = "paused"
+            elif pause_detected is False:
+                missing_note_behavior = "continued"
+            else:
+                missing_note_behavior = "unknown"
+
             feedback.append({
                 "measure": expected_event.get("measure"),
                 "beat": expected_event.get("beat"),
@@ -112,9 +139,16 @@ def format_note_feedback(expected_events, analysis):
                 "played_note_length": None,
                 "duration_status": None,
                 "timing_status": None,
+                "missing_note_behavior": missing_note_behavior,
+                "missing_note_pause_duration": (
+                    missing_timing.get(
+                        "local_quiet_duration"
+                    )
+                ),
             })
 
             expected_index += 1
+
         elif operation == "insertion":
             additional_note = next(
                 (

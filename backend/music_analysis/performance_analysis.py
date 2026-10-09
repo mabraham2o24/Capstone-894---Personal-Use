@@ -1,5 +1,6 @@
 from music_analysis.alignment import align_notes
 from music_analysis.timing_analysis import (
+    analyze_local_missing_note_pauses,
     analyze_missing_note_timing,
     analyze_note_duration,
     compare_timing,
@@ -54,11 +55,13 @@ def calculate_pitch_accuracy(alignment):
     }
 
 def analyze_performance(
-        expected_events, 
-        performed_events, 
-        silence_regions=None, 
-        seconds_per_beat=None, 
+        expected_events,
+        performed_events,
+        silence_regions=None,
+        seconds_per_beat=None,
         performance_start=None,
+        audio_path=None,
+        rest_details=None,
 ):
     """
     Compare a performed sequence against the expected score.
@@ -289,6 +292,70 @@ def analyze_performance(
             seconds_per_beat,
             performance_start,
         )
+
+    # Optional local acoustic analysis around missing notes.
+    # This complements the existing global silence analysis.
+    if missing_notes and audio_path is not None:
+
+        local_pause_results = analyze_local_missing_note_pauses(
+            audio_path,
+            alignment,
+            performed_events,
+            expected_notes=expected_events,
+            rest_details=rest_details,
+        )
+
+        local_results_by_index = {
+            result["expected_index"]: result
+            for result in local_pause_results
+        }
+
+        # Preserve any existing global missing-note timing results.
+        timing_by_index = {
+            result["expected_index"]: result
+            for result in missing_note_timing
+        }
+
+        for missing_note in missing_notes:
+            note_index = missing_note["note_index"]
+
+            local_result = local_results_by_index.get(
+                note_index
+            )
+
+            if local_result is None:
+                continue
+
+            if note_index not in timing_by_index:
+                timing_by_index[note_index] = {
+                    "expected_index": note_index,
+                    "pitch": missing_note["expected_note"],
+                }
+
+            timing_result = timing_by_index[note_index]
+
+            timing_result["local_pause_detected"] = (
+                local_result["pause_detected"]
+            )
+
+            timing_result["local_quiet_duration"] = (
+                local_result["longest_quiet_duration"]
+            )
+
+            timing_result["local_quiet_intervals"] = (
+                local_result["quiet_intervals"]
+            )
+
+            if "reason" in local_result:
+                timing_result["local_pause_reason"] = (
+                    local_result["reason"]
+                )
+
+        missing_note_timing = [
+            timing_by_index[note["note_index"]]
+            for note in missing_notes
+            if note["note_index"] in timing_by_index
+        ]
 
     pitch_accuracy = calculate_pitch_accuracy(alignment)
 

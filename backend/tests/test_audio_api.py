@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 from database import Base, get_db
 from main import app
 from pathlib import Path
+import pytest
 
 
 TEST_DATABASE_URL = "sqlite://"
@@ -598,3 +599,144 @@ def test_upload_audio_returns_pitch_accuracy():
     assert incorrect_note["performed_note"] == "C5"
     assert incorrect_note["measure"] == 4
     assert incorrect_note["beat"] == 4.0
+
+
+def test_upload_score_stores_rest_details():
+    response = client.post("/sessions")
+    assert response.status_code == 200
+
+    session_id = response.json()["session_id"]
+
+    score_path = Path(
+        "test_music/Minuet_in_F/minuet_in_f.mxl"
+    )
+
+    with score_path.open("rb") as score_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-score",
+            files={
+                "file": (
+                    score_path.name,
+                    score_file,
+                    "application/octet-stream",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    # Verify persisted session information through the API.
+    response = client.get(f"/sessions/{session_id}")
+    assert response.status_code == 200
+
+    score_summary = response.json()["score_summary"]
+
+    assert "rest_details" in score_summary
+
+    rests = score_summary["rest_details"]
+
+    assert any(
+        rest["measure"] == 2
+        and rest["beat"] == 3.0
+        and rest["duration"] == 1.0
+        for rest in rests
+    )
+
+    assert any(
+        rest["measure"] == 4
+        and rest["beat"] == 3.0
+        and rest["duration"] == 1.0
+        for rest in rests
+    )
+
+
+@pytest.mark.parametrize(
+    "instrument,scenario,expected_behavior",
+    [
+        ("violin", "missing_pause", "paused"),
+        ("violin", "missing_continuous", "continued"),
+        ("flute", "missing_pause", "paused"),
+        ("flute", "missing_continuous", "continued"),
+        ("piano", "missing_pause", "paused"),
+        ("piano", "missing_continuous", "continued"),
+    ],
+)
+def test_upload_audio_returns_missing_note_behavior(
+    instrument,
+    scenario,
+    expected_behavior,
+):
+    response = client.post("/sessions")
+    assert response.status_code == 200
+
+    session_id = response.json()["session_id"]
+
+    score_path = Path(
+        "test_music/Minuet_in_F/minuet_in_f.mxl"
+    )
+
+    with score_path.open("rb") as score_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-score",
+            files={
+                "file": (
+                    score_path.name,
+                    score_file,
+                    "application/octet-stream",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    audio_path = Path(
+        "test_music/Minuet_in_F/performances/"
+        f"minuet_measures_1_4_{instrument}_{scenario}.wav"
+    )
+
+    with audio_path.open("rb") as audio_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-audio",
+            data={
+                "start_measure": "1",
+                "end_measure": "4",
+            },
+            files={
+                "file": (
+                    audio_path.name,
+                    audio_file,
+                    "audio/wav",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "performance_analysis" in data
+    assert "note_feedback" in data
+
+    feedback = data["note_feedback"]
+
+    missing_e4 = [
+        item
+        for item in feedback
+        if (
+            item["measure"] == 2
+            and item["beat"] == 1.5
+            and item["expected_note"] == "E4"
+        )
+    ]
+
+    assert len(missing_e4) == 1
+
+    result = missing_e4[0]
+
+    assert result["pitch_status"] == "missing"
+    assert (
+        result["missing_note_behavior"]
+        == expected_behavior
+    )
+
+    assert "missing_note_pause_duration" in result
