@@ -296,3 +296,27 @@ def test_repeated_pitch_events_preserve_distinct_measured_onsets():
 
     for event in b4_events:
         assert event["measured_onset"] == event["onset"]
+
+def test_enharmonic_equivalent_pitch_is_matched():
+    expected = [
+        {"pitch": "C5", "offset": 0.0, "duration": 1.0},
+        {"pitch": "B-4", "offset": 1.0, "duration": 1.0},
+        {"pitch": "G4", "offset": 2.0, "duration": 1.0},
+    ]
+
+    detected = [
+        {"pitch": "C5", "onset": 0.0, "duration": 0.5},
+        {"pitch": "A#4", "onset": 0.5, "duration": 0.5},
+        {"pitch": "G4", "onset": 1.0, "duration": 0.5},
+    ]
+
+    result = segment_performance(expected, detected)
+
+    performed = result["performed_events"]
+
+    assert len(performed) == 3
+
+    assert performed[1]["pitch"] == "B-4"
+    assert performed[1]["inferred"] is False
+    assert performed[1]["measured_onset"] is not None
+    assert performed[1]["measured_duration"] is not None

@@ -11,6 +11,7 @@ raw events as musical notes.
 
 
 import statistics
+from music_analysis.pitch_utils import pitch_distance
 
 
 DEFAULT_TIMING_TOLERANCE_RATIO = 0.55
@@ -233,7 +234,7 @@ def segment_performance(
             expected = expected_info["event"]
             target = expected_info["target"]
 
-            if expected["pitch"] != group["pitch"]:
+            if pitch_distance(expected["pitch"], group["pitch"]) != 0:
                 continue
 
             if _overlaps_window(
@@ -258,7 +259,7 @@ def segment_performance(
         candidates = []
 
         for group_index, group in enumerate(groups):
-            if group["pitch"] != expected["pitch"]:
+            if pitch_distance(expected["pitch"], group["pitch"]) != 0:
                 continue
 
             if not _overlaps_window(
