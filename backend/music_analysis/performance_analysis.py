@@ -54,6 +54,104 @@ def calculate_pitch_accuracy(alignment):
         "note_results": note_results,
     }
 
+def calculate_rhythmic_accuracy(
+    timing,
+    expected_events,
+    performed_events,
+    alignment,
+    seconds_per_beat=None,
+):
+    """
+    Calculate rhythmic accuracy from onset intervals and
+    measured note durations.
+
+    Missing and additional notes are counted separately.
+    Unavailable duration measurements are excluded.
+    """
+
+    def accuracy_score(expected, performed):
+        if expected is None or performed is None or expected <= 0:
+            return None
+
+        error_ratio = abs(performed - expected) / expected
+        return max(0.0, 1.0 - error_ratio)
+
+    onset_scores = []
+
+    if timing is not None:
+        for result in timing["results"]:
+            score = accuracy_score(
+                result["expected_interval"],
+                result["performed_interval"],
+            )
+            if score is not None:
+                onset_scores.append(score)
+
+    duration_scores = []
+    expected_index = 0
+    performed_index = 0
+
+    for item in alignment:
+        operation = item["operation"]
+
+        if operation == "insertion":
+            performed_index += 1
+            continue
+
+        if operation == "deletion":
+            expected_index += 1
+            continue
+
+        expected = expected_events[expected_index]
+        performed = performed_events[performed_index]
+
+        if (
+            seconds_per_beat is not None
+            and seconds_per_beat > 0
+            and not performed.get("inferred", False)
+        ):
+            measured_duration = performed.get("measured_duration")
+
+            if measured_duration is not None:
+                score = accuracy_score(
+                    expected["duration"] * seconds_per_beat,
+                    measured_duration,
+                )
+                if score is not None:
+                    duration_scores.append(score)
+
+        expected_index += 1
+        performed_index += 1
+
+    def percentage(scores):
+        if not scores:
+            return None
+        return round(100 * sum(scores) / len(scores), 2)
+
+    onset_accuracy = percentage(onset_scores)
+    duration_accuracy = percentage(duration_scores)
+
+    all_scores = onset_scores + duration_scores
+    overall_accuracy = percentage(all_scores)
+
+    return {
+        "onset_accuracy_percent": onset_accuracy,
+        "duration_accuracy_percent": duration_accuracy,
+        "accuracy_percent": overall_accuracy,
+        "onset_intervals_evaluated": len(onset_scores),
+        "durations_evaluated": len(duration_scores),
+        "missing_notes": sum(
+            item["operation"] == "deletion" for item in alignment
+        ),
+        "additional_notes": sum(
+            item["operation"] == "insertion" for item in alignment
+        ),
+        "status": (
+            "calculated" if all_scores
+            else "insufficient_timing_data"
+        ),
+    }
+
 def calculate_note_sequence_accuracy(alignment):
     """
     Calculate note-sequence accuracy, including extra notes.
@@ -92,6 +190,65 @@ def calculate_note_sequence_accuracy(alignment):
         "additional_notes": additional_notes,
         "total_notes": total_notes,
         "accuracy_percent": accuracy_percent,
+    }
+def calculate_tempo_consistency(expected_events, performed_events, alignment):
+    """Measure tempo stability using reliable aligned note onsets."""
+    import statistics
+
+    aligned = []
+    expected_index = 0
+    performed_index = 0
+
+    for item in alignment:
+        operation = item["operation"]
+
+        if operation in ("match", "substitution"):
+            expected = expected_events[expected_index]
+            performed = performed_events[performed_index]
+
+            onset = performed.get("measured_onset")
+
+            if not performed.get("inferred", False) and onset is not None:
+                aligned.append((float(expected["offset"]), float(onset)))
+
+            expected_index += 1
+            performed_index += 1
+
+        elif operation == "deletion":
+            expected_index += 1
+
+        elif operation == "insertion":
+            performed_index += 1
+
+    beat_durations = []
+
+    for (previous_offset, previous_onset), (offset, onset) in zip(
+        aligned, aligned[1:]
+    ):
+        expected_beats = offset - previous_offset
+        performed_seconds = onset - previous_onset
+
+        if expected_beats > 0 and performed_seconds > 0:
+            beat_durations.append(performed_seconds / expected_beats)
+
+    if len(beat_durations) < 2:
+        return {
+            "status": "insufficient_timing_data",
+            "consistency_percent": None,
+            "variation_percent": None,
+            "intervals_evaluated": len(beat_durations),
+        }
+
+    mean_duration = statistics.mean(beat_durations)
+    variation = (
+        statistics.pstdev(beat_durations) / mean_duration
+    ) * 100
+
+    return {
+        "status": "calculated",
+        "consistency_percent": round(max(0.0, 100.0 - variation), 2),
+        "variation_percent": round(variation, 2),
+        "intervals_evaluated": len(beat_durations),
     }
 
 def analyze_performance(
@@ -400,6 +557,20 @@ def analyze_performance(
     pitch_accuracy = calculate_pitch_accuracy(alignment)
     note_sequence_accuracy = calculate_note_sequence_accuracy(alignment)
 
+    rhythmic_accuracy = calculate_rhythmic_accuracy(
+        timing=timing,
+        expected_events=expected_events,
+        performed_events=performed_events,
+        alignment=alignment,
+        seconds_per_beat=seconds_per_beat,
+    )
+
+    tempo_consistency = calculate_tempo_consistency(
+        expected_events,
+        performed_events,
+        alignment,
+    )
+
     return {
         "alignment": alignment,
         "errors": {
@@ -409,6 +580,8 @@ def analyze_performance(
         },
         "pitch_accuracy": pitch_accuracy,
         "note_sequence_accuracy": note_sequence_accuracy,
+        "rhythmic_accuracy": rhythmic_accuracy,
+        "tempo_consistency": tempo_consistency,
         "timing": timing,
         "missing_note_timing": missing_note_timing,
         "duration_analysis": duration_analysis,

@@ -41,9 +41,34 @@ def _estimate_seconds_per_beat(expected_events, detected_events):
         - expected_events[0]["offset"]
     )
 
+    last_event = detected_events[-1]
+    previous_event = detected_events[-2]
+
+    # Use the preceding onset only when the final event appears
+    # to be a continuation of the same musical note.
+    final_is_fragment = (
+        len(detected_events) >= 3
+        and pitch_distance(
+            last_event["pitch"],
+            previous_event["pitch"]
+        ) == 0
+        and (
+            last_event["onset"]
+            - (
+                previous_event["onset"]
+                + previous_event.get("duration", 0.0)
+            )
+        ) <= 0.20
+    )
+
+    final_onset = (
+        previous_event["onset"]
+        if final_is_fragment
+        else last_event["onset"]
+    )
+
     performed_span = (
-        detected_events[-1]["onset"]
-        - detected_events[0]["onset"]
+        final_onset - detected_events[0]["onset"]
     )
 
     if expected_span <= 0:
