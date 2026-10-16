@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
@@ -11,6 +12,10 @@ function PerformanceUpload() {
 
   const sessionId = location.state?.sessionId
   const scoreResult = location.state?.scoreResult
+
+  // Gets the selected measure range from the Score Processing page.
+  const startMeasure = location.state?.startMeasure
+  const endMeasure = location.state?.endMeasure
 
   // Audio performance state.
   const [audioFile, setAudioFile] = useState(null)
@@ -39,15 +44,29 @@ function PerformanceUpload() {
       return
     }
 
+    if (
+      !Number.isInteger(startMeasure) ||
+      !Number.isInteger(endMeasure) ||
+      startMeasure < 1 ||
+      endMeasure < startMeasure
+    ) {
+      setAudioMessage('Please select a valid measure range first.')
+      return
+    }
+
     setAudioLoading(true)
     setAudioMessage('')
 
     try {
-      // Prepare the audio file for the FastAPI endpoint.
+      // Prepare the audio file and selected measures
+      // for the FastAPI endpoint.
       const formData = new FormData()
       formData.append('file', audioFile)
+      formData.append('start_measure', String(startMeasure))
+      formData.append('end_measure', String(endMeasure))
 
-      // Send the WAV file to the existing audio-analysis endpoint.
+      // Send the WAV file and measure range to the
+      // existing audio-analysis endpoint.
       const audioResponse = await fetch(
         `http://127.0.0.1:8000/sessions/${sessionId}/upload-audio`,
         {
@@ -65,12 +84,14 @@ function PerformanceUpload() {
       }
 
       // After successful analysis, go to the
-      // Performance Processing page.
+      // Performance Results page.
       navigate('/performance-results', {
         state: {
           sessionId: sessionId,
           scoreResult: scoreResult,
           audioResult: audioData,
+          startMeasure: startMeasure,
+          endMeasure: endMeasure,
         },
       })
     } catch (error) {
@@ -80,15 +101,21 @@ function PerformanceUpload() {
     }
   }
 
-  // Prevents this page from being used without a practice session.
-  if (!sessionId || !scoreResult) {
+  // Prevents this page from being used without a practice
+  // session and a valid selected measure range.
+  if (
+    !sessionId ||
+    !scoreResult ||
+    !Number.isInteger(startMeasure) ||
+    !Number.isInteger(endMeasure)
+  ) {
     return (
       <div className="performance-upload-page">
         <div className="performance-card">
           <h1>Add Your Performance</h1>
 
           <p className="message">
-            No active practice session is available.
+            No active practice session or measure selection is available.
           </p>
 
           <button
@@ -112,6 +139,8 @@ function PerformanceUpload() {
               state: {
                 sessionId: sessionId,
                 scoreResult: scoreResult,
+                startMeasure: startMeasure,
+                endMeasure: endMeasure,
               },
             })
           }
@@ -125,8 +154,8 @@ function PerformanceUpload() {
           Upload a WAV recording of your performance.
         </p>
 
-        {/* Shows which practice session and score
-            this performance will belong to. */}
+        {/* Shows which practice session, score, and
+            measure range this performance belongs to. */}
         <div className="summary-grid">
           <div>
             <span>Session ID</span>
@@ -136,6 +165,16 @@ function PerformanceUpload() {
           <div>
             <span>MusicXML File</span>
             <strong>{scoreResult.filename}</strong>
+          </div>
+
+          <div>
+            <span>Starting Measure</span>
+            <strong>{startMeasure}</strong>
+          </div>
+
+          <div>
+            <span>Ending Measure</span>
+            <strong>{endMeasure}</strong>
           </div>
         </div>
 

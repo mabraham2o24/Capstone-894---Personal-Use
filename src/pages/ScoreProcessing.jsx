@@ -1,3 +1,5 @@
+
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 function ScoreProcessing() {
@@ -10,6 +12,59 @@ function ScoreProcessing() {
 
   const sessionId = location.state?.sessionId
   const scoreResult = location.state?.scoreResult
+
+  // Stores the measure range entered by the user.
+  const [startMeasure, setStartMeasure] = useState('')
+  const [endMeasure, setEndMeasure] = useState('')
+  const [measureMessage, setMeasureMessage] = useState('')
+
+  // Validates the selected measures before continuing.
+  const handleContinue = () => {
+    const start = Number(startMeasure)
+    const end = Number(endMeasure)
+    const totalMeasures = scoreResult?.summary?.num_measures
+
+    if (startMeasure === '' || endMeasure === '') {
+      setMeasureMessage('Please enter both starting and ending measures.')
+      return
+    }
+
+    if (
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start < 1 ||
+      end < 1
+    ) {
+      setMeasureMessage('Please enter valid whole-number measures.')
+      return
+    }
+
+    if (start > end) {
+      setMeasureMessage(
+        'Starting measure cannot be greater than ending measure.'
+      )
+      return
+    }
+
+    if (totalMeasures != null && end > totalMeasures) {
+      setMeasureMessage(
+        `Ending measure cannot exceed ${totalMeasures}.`
+      )
+      return
+    }
+
+    setMeasureMessage('')
+
+    // Pass the selected measures to the Performance Upload page.
+    navigate('/performance-upload', {
+      state: {
+        sessionId: sessionId,
+        scoreResult: scoreResult,
+        startMeasure: start,
+        endMeasure: end,
+      },
+    })
+  }
 
   // If this page is opened without first uploading a score,
   // show a message instead of causing an error.
@@ -129,18 +184,68 @@ function ScoreProcessing() {
           </div>
         </div>
 
+        {/* Allows the user to select the measures to practice */}
+        <div className="performance-section">
+          <h2>Select Measures to Practice</h2>
+
+          <p className="subtitle">
+            Enter the starting and ending measures you want to practice.
+          </p>
+
+          <div className="summary-grid">
+            <div>
+              <label htmlFor="start-measure">
+                Starting Measure
+              </label>
+
+              <input
+                id="start-measure"
+                type="number"
+                min="1"
+                max={scoreResult.summary.num_measures ?? undefined}
+                step="1"
+                value={startMeasure}
+                onChange={(event) => {
+                  setStartMeasure(event.target.value)
+                  setMeasureMessage('')
+                }}
+                placeholder="Enter start"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="end-measure">
+                Ending Measure
+              </label>
+
+              <input
+                id="end-measure"
+                type="number"
+                min="1"
+                max={scoreResult.summary.num_measures ?? undefined}
+                step="1"
+                value={endMeasure}
+                onChange={(event) => {
+                  setEndMeasure(event.target.value)
+                  setMeasureMessage('')
+                }}
+                placeholder="Enter end"
+              />
+            </div>
+          </div>
+
+          {measureMessage && (
+            <div className="message">
+              {measureMessage}
+            </div>
+          )}
+        </div>
+
         {/* Continues the same practice session to audio upload */}
         <div className="page-actions">
           <button
             className="upload-button"
-            onClick={() =>
-              navigate('/performance-upload', {
-                state: {
-                  sessionId: sessionId,
-                  scoreResult: scoreResult,
-                },
-              })
-            }
+            onClick={handleContinue}
           >
             Upload Performance
           </button>

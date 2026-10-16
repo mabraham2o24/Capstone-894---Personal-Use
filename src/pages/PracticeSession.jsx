@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -105,7 +106,7 @@ function PracticeSession() {
 
             <input
               type="file"
-              accept=".xml,.musicxml"
+              accept=".xml,.musicxml,.mxl"
               onChange={handleFileChange}
             />
           </label>
