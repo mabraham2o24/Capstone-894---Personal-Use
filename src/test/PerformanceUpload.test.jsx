@@ -8,6 +8,7 @@ import {
   Route,
   useLocation,
 } from 'react-router-dom'
+
 import PerformanceUpload from '../pages/PerformanceUpload.jsx'
 
 // Sample score information from the previous page.
@@ -19,8 +20,9 @@ const mockScoreResult = {
 // Sample audio analysis response from the backend.
 const mockAudioResult = {
   filename: 'performance.wav',
-  status: 'processed',
+  status: 'audio_analyzed',
   detected_pitches: ['C4', 'D4', 'E4'],
+  note_feedback: [],
 }
 
 // Displays the information passed to Performance Results.
@@ -33,6 +35,8 @@ function MockPerformanceResults() {
       <p>Session: {location.state?.sessionId}</p>
       <p>Score: {location.state?.scoreResult?.filename}</p>
       <p>Audio: {location.state?.audioResult?.filename}</p>
+      <p>Start: {location.state?.startMeasure}</p>
+      <p>End: {location.state?.endMeasure}</p>
     </div>
   )
 }
@@ -46,8 +50,18 @@ function MockScoreProcessing() {
       <h1>Score Processing Test Page</h1>
       <p>Session: {location.state?.sessionId}</p>
       <p>Score: {location.state?.scoreResult?.filename}</p>
+      <p>Start: {location.state?.startMeasure}</p>
+      <p>End: {location.state?.endMeasure}</p>
     </div>
   )
+}
+
+// Valid Sprint 2 practice session with selected measures.
+const validSession = {
+  sessionId: 123,
+  scoreResult: mockScoreResult,
+  startMeasure: 3,
+  endMeasure: 6,
 }
 
 // Renders the page with or without session information.
@@ -105,10 +119,7 @@ describe('Performance Upload Page Tests', () => {
 
   // Test 1: Verify the audio upload interface.
   test('displays the audio upload interface', () => {
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     expect(
       screen.getByRole('heading', {
@@ -129,6 +140,23 @@ describe('Performance Upload Page Tests', () => {
     expect(
       screen.getByText('sample.musicxml')
     ).toBeInTheDocument()
+
+    // Sprint 2: Verify the selected measure range.
+    expect(
+      screen.getByText('Starting Measure')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Ending Measure')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('3')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('6')
+    ).toBeInTheDocument()
   })
 
   // Test 2: Verify that selecting a WAV file
@@ -136,10 +164,7 @@ describe('Performance Upload Page Tests', () => {
   test('displays the selected WAV filename', async () => {
     const user = userEvent.setup()
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     await user.upload(
       screen.getByLabelText('Choose Audio File'),
@@ -159,10 +184,7 @@ describe('Performance Upload Page Tests', () => {
 
     vi.stubGlobal('fetch', mockFetch)
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     await user.click(
       screen.getByRole('button', {
@@ -179,8 +201,8 @@ describe('Performance Upload Page Tests', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  // Test 4: Verify successful WAV upload
-  // and navigation to Performance Results.
+  // Test 4: Verify successful WAV upload,
+  // selected measures, and navigation.
   test('uploads audio and navigates to results', async () => {
     const user = userEvent.setup()
 
@@ -191,10 +213,7 @@ describe('Performance Upload Page Tests', () => {
 
     vi.stubGlobal('fetch', mockFetch)
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     const file = createAudioFile()
 
@@ -209,7 +228,6 @@ describe('Performance Upload Page Tests', () => {
       })
     )
 
-    // Verify that the backend endpoint was called.
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(1)
     })
@@ -223,10 +241,20 @@ describe('Performance Upload Page Tests', () => {
 
     expect(uploadOptions.method).toBe('POST')
 
-    // Verify that the selected file was sent.
+    // Verify that the selected WAV file was sent.
     expect(
       uploadOptions.body.get('file')
     ).toEqual(file)
+
+    // Sprint 2: Verify the selected measures
+    // were included in the backend request.
+    expect(
+      uploadOptions.body.get('start_measure')
+    ).toBe('3')
+
+    expect(
+      uploadOptions.body.get('end_measure')
+    ).toBe('6')
 
     // Verify navigation and transferred information.
     expect(
@@ -244,6 +272,14 @@ describe('Performance Upload Page Tests', () => {
     expect(
       screen.getByText('Audio: performance.wav')
     ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Start: 3')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('End: 6')
+    ).toBeInTheDocument()
   })
 
   // Test 5: Verify backend error handling.
@@ -259,10 +295,7 @@ describe('Performance Upload Page Tests', () => {
 
     vi.stubGlobal('fetch', mockFetch)
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     await user.upload(
       screen.getByLabelText('Choose Audio File'),
@@ -288,7 +321,7 @@ describe('Performance Upload Page Tests', () => {
 
     expect(
       screen.getByText(
-        'No active practice session is available.'
+        'No active practice session or measure selection is available.'
       )
     ).toBeInTheDocument()
 
@@ -317,14 +350,11 @@ describe('Performance Upload Page Tests', () => {
   })
 
   // Test 8: Verify navigation back to Score Processing
-  // while preserving the session information.
+  // while preserving session and measure information.
   test('returns to Score Processing with session data', async () => {
     const user = userEvent.setup()
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     await user.click(
       screen.getByRole('button', {
@@ -343,6 +373,14 @@ describe('Performance Upload Page Tests', () => {
     expect(
       screen.getByText('Score: sample.musicxml')
     ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Start: 3')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('End: 6')
+    ).toBeInTheDocument()
   })
 
   // Test 9: Verify the default error message
@@ -357,10 +395,7 @@ describe('Performance Upload Page Tests', () => {
 
     vi.stubGlobal('fetch', mockFetch)
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     await user.upload(
       screen.getByLabelText('Choose Audio File'),
@@ -391,10 +426,7 @@ describe('Performance Upload Page Tests', () => {
 
     vi.stubGlobal('fetch', mockFetch)
 
-    renderPerformanceUpload({
-      sessionId: 123,
-      scoreResult: mockScoreResult,
-    })
+    renderPerformanceUpload(validSession)
 
     await user.upload(
       screen.getByLabelText('Choose Audio File'),
@@ -411,7 +443,6 @@ describe('Performance Upload Page Tests', () => {
       await screen.findByText('Failed to fetch')
     ).toBeInTheDocument()
 
-    // Verify the upload button is enabled again.
     expect(
       screen.getByRole('button', {
         name: 'Upload Performance',
@@ -419,6 +450,59 @@ describe('Performance Upload Page Tests', () => {
     ).toBeEnabled()
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  // Test 11: Verify that the upload interface
+  // is blocked when measure selection is missing.
+  test('blocks upload when measure selection is missing', () => {
+    renderPerformanceUpload({
+      sessionId: 123,
+      scoreResult: mockScoreResult,
+    })
+
+    expect(
+      screen.getByText(
+        'No active practice session or measure selection is available.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByLabelText('Choose Audio File')
+    ).not.toBeInTheDocument()
+  })
+
+  // Test 12: Verify the upload interface
+  // displays a different valid measure range.
+  test('displays Minuet measure selection', () => {
+    renderPerformanceUpload({
+      sessionId: 456,
+      scoreResult: {
+        filename: 'minuet_in_f.mxl',
+        status: 'processed',
+      },
+      startMeasure: 1,
+      endMeasure: 4,
+    })
+
+    expect(
+      screen.getByText('minuet_in_f.mxl')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Starting Measure')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Ending Measure')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('1')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('4')
+    ).toBeInTheDocument()
   })
 
 })

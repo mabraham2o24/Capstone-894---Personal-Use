@@ -1,3 +1,4 @@
+
 import { describe, test, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -51,6 +52,8 @@ function MockPerformanceUpload() {
       <h1>Performance Upload Test Page</h1>
       <p>Session: {location.state?.sessionId}</p>
       <p>File: {location.state?.scoreResult?.filename}</p>
+      <p>Start: {location.state?.startMeasure}</p>
+      <p>End: {location.state?.endMeasure}</p>
     </div>
   )
 }
@@ -88,6 +91,17 @@ function renderScoreProcessing(state = null) {
   )
 }
 
+// Creates a processed score with a specified number of measures.
+function createScoreWithMeasures(numMeasures) {
+  return {
+    ...mockScoreResult,
+    summary: {
+      ...mockScoreResult.summary,
+      num_measures: numMeasures,
+    },
+  }
+}
+
 describe('Score Processing Page Tests', () => {
 
   // Test 1: Verify the page displays processed score details.
@@ -109,7 +123,6 @@ describe('Score Processing Page Tests', () => {
     expect(screen.getByText('processed')).toBeInTheDocument()
     expect(screen.getByText('120 BPM')).toBeInTheDocument()
 
-    // Check the number of notes and measures.
     expect(screen.getByText('Total Notes')).toBeInTheDocument()
     expect(screen.getByText('Measures')).toBeInTheDocument()
 
@@ -134,7 +147,6 @@ describe('Score Processing Page Tests', () => {
     const table = screen.getByRole('table')
     const rows = within(table).getAllByRole('row')
 
-    // Header row plus four extracted notes.
     expect(rows).toHaveLength(5)
 
     expect(
@@ -153,7 +165,6 @@ describe('Score Processing Page Tests', () => {
       within(table).getByText('F4')
     ).toBeInTheDocument()
 
-    // Verify the first note's values.
     expect(
       within(rows[1]).getAllByRole('cell')
         .map((cell) => cell.textContent)
@@ -180,14 +191,25 @@ describe('Score Processing Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 4: Verify navigation to Performance Upload.
-  test('navigates to Performance Upload with session data', async () => {
+  // Test 4: Verify navigation to Performance Upload
+  // with the selected measure range.
+  test('navigates to Performance Upload with session and measures', async () => {
     const user = userEvent.setup()
 
     renderScoreProcessing({
       sessionId: 123,
-      scoreResult: mockScoreResult,
+      scoreResult: createScoreWithMeasures(8),
     })
+
+    await user.type(
+      screen.getByLabelText(/Starting Measure/i),
+      '3'
+    )
+
+    await user.type(
+      screen.getByLabelText(/Ending Measure/i),
+      '6'
+    )
 
     await user.click(
       screen.getByRole('button', {
@@ -205,6 +227,14 @@ describe('Score Processing Page Tests', () => {
 
     expect(
       screen.getByText('File: sample.musicxml')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Start: 3')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('End: 6')
     ).toBeInTheDocument()
   })
 
@@ -261,6 +291,95 @@ describe('Score Processing Page Tests', () => {
     expect(
       screen.getByText('Dashboard Test Page')
     ).toBeInTheDocument()
+  })
+
+  // Test 8: Verify the user cannot continue
+  // without selecting measures.
+  test('requires starting and ending measures', async () => {
+    const user = userEvent.setup()
+
+    renderScoreProcessing({
+      sessionId: 123,
+      scoreResult: createScoreWithMeasures(8),
+    })
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    )
+
+    expect(
+      screen.getByText(
+        'Please enter both starting and ending measures.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Performance Upload Test Page')
+    ).not.toBeInTheDocument()
+  })
+
+  // Test 9: Verify the ending measure
+  // cannot be earlier than the starting measure.
+  test('rejects an ending measure before the starting measure', async () => {
+    const user = userEvent.setup()
+
+    renderScoreProcessing({
+      sessionId: 123,
+      scoreResult: createScoreWithMeasures(8),
+    })
+
+    await user.type(
+      screen.getByLabelText(/Starting Measure/i),
+      '6'
+    )
+
+    await user.type(
+      screen.getByLabelText(/Ending Measure/i),
+      '3'
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    )
+
+    expect(
+      screen.queryByText('Performance Upload Test Page')
+    ).not.toBeInTheDocument()
+  })
+
+  // Test 10: Verify the selected measures
+  // cannot exceed the number of score measures.
+  test('rejects a measure range beyond the score', async () => {
+    const user = userEvent.setup()
+
+    renderScoreProcessing({
+      sessionId: 123,
+      scoreResult: createScoreWithMeasures(8),
+    })
+
+    await user.type(
+      screen.getByLabelText(/Starting Measure/i),
+      '3'
+    )
+
+    await user.type(
+      screen.getByLabelText(/Ending Measure/i),
+      '10'
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    )
+
+    expect(
+      screen.queryByText('Performance Upload Test Page')
+    ).not.toBeInTheDocument()
   })
 
 })
