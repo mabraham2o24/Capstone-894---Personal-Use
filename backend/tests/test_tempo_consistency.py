@@ -135,3 +135,38 @@ def test_tempo_consistency_in_performance_analysis():
     assert "tempo_consistency" in result
     assert result["tempo_consistency"]["status"] == "calculated"
     assert result["tempo_consistency"]["consistency_percent"] == 100.0
+
+
+def test_missing_and_additional_notes_excluded():
+    expected = [
+        {"pitch": "C4", "offset": 0.0, "duration": 1.0},
+        {"pitch": "D4", "offset": 1.0, "duration": 1.0},
+        {"pitch": "E4", "offset": 2.0, "duration": 1.0},
+        {"pitch": "F4", "offset": 3.0, "duration": 1.0},
+        {"pitch": "G4", "offset": 4.0, "duration": 1.0},
+    ]
+
+    performed = [
+        {"pitch": "C4", "onset": 0.0, "measured_onset": 0.0},
+        {"pitch": "D4", "onset": 0.5, "measured_onset": 0.5},
+        {"pitch": "F4", "onset": 1.5, "measured_onset": 1.5},
+        {"pitch": "G4", "onset": 2.0, "measured_onset": 2.0},
+        {"pitch": "A4", "onset": 2.25, "measured_onset": 2.25},
+    ]
+
+    alignment = [
+        {"operation": "match"},
+        {"operation": "match"},
+        {"operation": "deletion"},
+        {"operation": "match"},
+        {"operation": "match"},
+        {"operation": "insertion"},
+    ]
+
+    result = calculate_tempo_consistency(
+        expected, performed, alignment
+    )
+
+    assert result["status"] == "calculated"
+    assert result["intervals_evaluated"] == 3
+    assert result["consistency_percent"] == 100.0

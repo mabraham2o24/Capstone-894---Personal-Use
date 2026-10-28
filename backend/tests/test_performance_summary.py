@@ -66,3 +66,30 @@ def test_summary_requires_analysis():
     )
 
     assert result is None
+
+
+def test_summary_with_no_errors():
+    analysis = {
+        "pitch_accuracy": {"accuracy_percent": 100.0},
+        "rhythmic_accuracy": {"accuracy_percent": 100.0},
+        "tempo_consistency": {"consistency_percent": 100.0},
+        "errors": {
+            "incorrect_pitch": [],
+            "missing_notes": [],
+            "additional_notes": [],
+        },
+    }
+
+    result = generate_performance_summary(
+        analysis, [], []
+    )
+
+    assert result["error_counts"] == {
+        "incorrect_pitch": 0,
+        "missing_notes": 0,
+        "additional_notes": 0,
+    }
+    assert result["problem_area_count"] == 0
+    assert result["problem_areas"] == []
+    assert result["note_feedback"] == []
+    assert result["metrics"]["pitch_accuracy"]["accuracy_percent"] == 100.0

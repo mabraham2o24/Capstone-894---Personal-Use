@@ -769,3 +769,19 @@ def test_note_sequence_accuracy_empty_alignment():
 
     assert result["accuracy_percent"] == 0.0
     assert result["total_notes"] == 0
+
+
+def test_pitch_accuracy_with_missing_and_additional_notes():
+    alignment = [
+        {"expected_note": "C4", "performed_note": "C4", "operation": "match"},
+        {"expected_note": "D4", "performed_note": None, "operation": "deletion"},
+        {"expected_note": None, "performed_note": "D#4", "operation": "insertion"},
+        {"expected_note": "E4", "performed_note": "E4", "operation": "match"},
+        {"expected_note": "F4", "performed_note": "F4", "operation": "match"},
+    ]
+
+    result = calculate_pitch_accuracy(alignment)
+
+    assert result["correct_notes"] == 3
+    assert result["total_expected_notes"] == 4
+    assert result["accuracy_percent"] == 75.0
