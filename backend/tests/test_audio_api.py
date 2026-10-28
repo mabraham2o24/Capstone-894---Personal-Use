@@ -102,6 +102,50 @@ def test_upload_audio_uses_selected_measure_range():
     data = response.json()
     analysis = data["performance_analysis"]
 
+
+    # US-17: Problem-area identification
+    assert "problem_areas" in data
+    assert isinstance(data["problem_areas"], list)
+
+    for area in data["problem_areas"]:
+        assert "measure" in area
+        assert "error_notes" in area
+        assert "error_rate" in area
+        assert area["requires_practice"] is True
+
+    # US-18: Performance summary
+    assert "performance_summary" in data
+
+    summary = data["performance_summary"]
+    assert summary is not None
+
+    assert "metrics" in summary
+    assert "error_counts" in summary
+    assert "detected_errors" in summary
+    assert "note_feedback" in summary
+    assert "problem_areas" in summary
+
+    # Verify existing metric data is preserved.
+    assert summary["metrics"]["pitch_accuracy"] == (
+        data["performance_analysis"]["pitch_accuracy"]
+    )
+    assert summary["metrics"]["rhythmic_accuracy"] == (
+        data["performance_analysis"]["rhythmic_accuracy"]
+    )
+    assert summary["metrics"]["tempo_consistency"] == (
+        data["performance_analysis"]["tempo_consistency"]
+    )
+
+    # Verify US-17 and US-18 agree.
+    assert summary["problem_areas"] == data["problem_areas"]
+    assert summary["problem_area_count"] == len(
+        data["problem_areas"]
+    )
+
+    # Verify existing note feedback is preserved.
+    assert summary["note_feedback"] == data["note_feedback"]
+
+
     # Measures 3-6 contain 16 expected notes.
     assert len(analysis["alignment"]) == 16
 
@@ -579,7 +623,7 @@ def test_upload_audio_returns_pitch_accuracy():
     analysis = response.json()["performance_analysis"]
 
     pitch_accuracy = analysis["pitch_accuracy"]
-    
+
 
     assert pitch_accuracy["correct_notes"] == 15
     assert pitch_accuracy["total_expected_notes"] == 16
