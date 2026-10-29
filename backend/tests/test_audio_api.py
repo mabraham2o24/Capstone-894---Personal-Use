@@ -102,6 +102,13 @@ def test_upload_audio_uses_selected_measure_range():
     data = response.json()
     analysis = data["performance_analysis"]
 
+    rhythm = analysis["rhythmic_accuracy"]
+
+    assert rhythm["status"] == "calculated"
+    assert rhythm["duration_accuracy_percent"] is not None
+    assert rhythm["duration_accuracy_percent"] < 100.0
+    assert rhythm["durations_evaluated"] > 0
+
 
     # US-17: Problem-area identification
     assert "problem_areas" in data
@@ -112,6 +119,16 @@ def test_upload_audio_uses_selected_measure_range():
         assert "error_notes" in area
         assert "error_rate" in area
         assert area["requires_practice"] is True
+
+    # IT-06: Verify problem areas identify actual score locations.
+    problem_areas = data["problem_areas"]
+
+    assert len(problem_areas) > 0
+
+    for area in problem_areas:
+        assert 3 <= area["measure"] <= 6
+        assert area["error_notes"] > 0
+        assert area["error_rate"] > 0
 
     # US-18: Performance summary
     assert "performance_summary" in data
@@ -145,6 +162,20 @@ def test_upload_audio_uses_selected_measure_range():
     # Verify existing note feedback is preserved.
     assert summary["note_feedback"] == data["note_feedback"]
 
+    # IT-08: Verify complete analysis response consistency.
+    assert "pitch_accuracy" in analysis
+    assert "rhythmic_accuracy" in analysis
+    assert "tempo_consistency" in analysis
+    assert "errors" in analysis
+
+    summary = data["performance_summary"]
+
+    assert summary["metrics"]["pitch_accuracy"] == analysis["pitch_accuracy"]
+    assert summary["metrics"]["rhythmic_accuracy"] == analysis["rhythmic_accuracy"]
+    assert summary["metrics"]["tempo_consistency"] == analysis["tempo_consistency"]
+
+    assert summary["problem_areas"] == data["problem_areas"]
+    assert summary["note_feedback"] == data["note_feedback"]
 
     # Measures 3-6 contain 16 expected notes.
     assert len(analysis["alignment"]) == 16
@@ -490,7 +521,23 @@ def test_upload_audio_returns_late_note_timing_feedback():
     assert response.status_code == 200
 
     analysis = response.json()["performance_analysis"]
+
+    # IT-05: Verify tempo variation is reflected in the API response.
+    tempo = analysis["tempo_consistency"]
+
+    assert tempo["status"] == "calculated"
+    assert tempo["consistency_percent"] < 100.0
+    assert tempo["variation_percent"] > 0.0
+    assert tempo["intervals_evaluated"] > 0
+
     timing_results = analysis["timing"]["results"]
+
+    rhythm = analysis["rhythmic_accuracy"]
+
+    assert rhythm["status"] == "calculated"
+    assert rhythm["onset_accuracy_percent"] is not None
+    assert rhythm["onset_accuracy_percent"] < 100.0
+    assert rhythm["onset_intervals_evaluated"] > 0
 
     late_notes = [
         note
@@ -793,3 +840,92 @@ def test_upload_audio_returns_missing_note_behavior(
     )
 
     assert "missing_note_pause_duration" in result
+
+def test_complete_workflow_with_multiple_errors():
+    """IT-08: Verify complete analysis with mixed performance errors."""
+
+    # Create session.
+    response = client.post("/sessions")
+    assert response.status_code == 200
+    session_id = response.json()["session_id"]
+
+    # Upload Minuet in F score.
+    score_path = Path("test_music/Minuet_in_F/minuet_in_f.mxl")
+
+    with score_path.open("rb") as score_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-score",
+            files={
+                "file": (
+                    score_path.name,
+                    score_file,
+                    "application/octet-stream",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    # Upload performance containing multiple errors.
+    audio_path = Path(
+        "test_music/Minuet_in_F/performances/"
+        "minuet_measures_1_4_violin_multiple_errors.wav"
+    )
+
+    with audio_path.open("rb") as audio_file:
+        response = client.post(
+            f"/sessions/{session_id}/upload-audio",
+            data={
+                "start_measure": "1",
+                "end_measure": "4",
+            },
+            files={
+                "file": (
+                    audio_path.name,
+                    audio_file,
+                    "audio/wav",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    analysis = data["performance_analysis"]
+    summary = data["performance_summary"]
+
+    # Verify all Sprint 3 metrics are returned.
+    for metric in (
+        "pitch_accuracy",
+        "rhythmic_accuracy",
+        "tempo_consistency",
+    ):
+        assert metric in analysis
+        assert summary["metrics"][metric] == analysis[metric]
+
+    # Verify errors and feedback are available.
+    assert "errors" in analysis
+    assert "note_feedback" in data
+    assert isinstance(data["note_feedback"], list)
+
+    # Verify multiple error types were detected.
+    detected_error_types = {
+        error_type
+        for error_type, errors in analysis["errors"].items()
+        if isinstance(errors, list) and len(errors) > 0
+    }
+
+    assert len(detected_error_types) >= 2
+
+    # Verify problem-area identification.
+    assert "problem_areas" in data
+    assert isinstance(data["problem_areas"], list)
+
+    for area in data["problem_areas"]:
+        assert 1 <= area["measure"] <= 4
+        assert area["requires_practice"] is True
+
+    # Verify summary consistency.
+    assert summary["problem_areas"] == data["problem_areas"]
+    assert summary["note_feedback"] == data["note_feedback"]
+    assert summary["problem_area_count"] == len(data["problem_areas"])
