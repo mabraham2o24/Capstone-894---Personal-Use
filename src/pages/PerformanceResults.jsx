@@ -29,6 +29,44 @@ function PerformanceResults() {
     return String(status).replace(/_/g, ' ')
   }
 
+  // Assigns a visual style to each feedback status.
+  const getStatusClass = (status) => {
+    if (status == null || status === '') {
+      return 'feedback-status-neutral'
+    }
+
+    const normalizedStatus = String(status)
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .trim()
+
+    if (
+      normalizedStatus === 'correct' ||
+      normalizedStatus === 'on time'
+    ) {
+      return 'feedback-status-success'
+    }
+
+    if (
+      normalizedStatus === 'incorrect' ||
+      normalizedStatus === 'missing' ||
+      normalizedStatus === 'additional'
+    ) {
+      return 'feedback-status-error'
+    }
+
+    if (
+      normalizedStatus === 'early' ||
+      normalizedStatus === 'late' ||
+      normalizedStatus === 'too short' ||
+      normalizedStatus === 'too long'
+    ) {
+      return 'feedback-status-warning'
+    }
+
+    return 'feedback-status-neutral'
+  }
+
   // Displays missing or unavailable note information clearly.
   const formatValue = (value) => {
     if (value == null || value === '') {
@@ -175,7 +213,11 @@ function PerformanceResults() {
                       </td>
 
                       <td>
-                        {formatStatus(feedback.pitch_status)}
+                        <span
+                          className={`feedback-status ${getStatusClass(feedback.pitch_status)}`}
+                        >
+                          {formatStatus(feedback.pitch_status)}
+                        </span>
                       </td>
 
                       <td>
@@ -187,11 +229,19 @@ function PerformanceResults() {
                       </td>
 
                       <td>
-                        {formatStatus(feedback.duration_status)}
+                        <span
+                          className={`feedback-status ${getStatusClass(feedback.duration_status)}`}
+                        >
+                          {formatStatus(feedback.duration_status)}
+                        </span>
                       </td>
 
                       <td>
-                        {formatStatus(feedback.timing_status)}
+                        <span
+                          className={`feedback-status ${getStatusClass(feedback.timing_status)}`}
+                        >
+                          {formatStatus(feedback.timing_status)}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -210,37 +260,6 @@ function PerformanceResults() {
               ? audioResult.detected_pitches.join(', ')
               : 'No pitches detected.'}
           </p>
-        </div>
-
-        {/* Displays each detected note event */}
-        <div className="performance-section">
-          <h2>Detected Notes</h2>
-
-          <div className="table-container">
-            <table className="notes-table">
-              <thead>
-                <tr>
-                  <th>Note</th>
-                  <th>Pitch</th>
-                  <th>Duration</th>
-                  <th>Onset Time</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {(audioResult.note_events ?? []).map(
-                  (note, index) => (
-                    <tr key={index}>
-                      <td>{index + 1}</td>
-                      <td>{note.pitch}</td>
-                      <td>{note.duration} sec</td>
-                      <td>{note.onset} sec</td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
 
         <div className="page-actions">

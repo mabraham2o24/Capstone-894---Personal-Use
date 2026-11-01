@@ -1,3 +1,4 @@
+
 import { useNavigate } from 'react-router-dom'
 
 function Dashboard() {
@@ -7,9 +8,13 @@ function Dashboard() {
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
-        <div>
-          <h1>Virtual Music Instructor</h1>
-          <p>Practice smarter. Improve your performance.</p>
+        <div className="dashboard-brand">
+          <div className="dashboard-brand-icon">♫</div>
+
+          <div>
+            <h1>Virtual Music Instructor</h1>
+            <p>Practice smarter. Improve your performance.</p>
+          </div>
         </div>
 
         {/* Temporary logout navigation.
@@ -23,36 +28,79 @@ function Dashboard() {
       </header>
 
       <main className="dashboard-content">
-        <div className="dashboard-welcome">
-          <h2>Welcome</h2>
+        {/* Welcome section with the main practice button */}
+        <section className="dashboard-welcome">
+          <span className="dashboard-eyebrow">
+            YOUR PRACTICE SPACE
+          </span>
+
+          <h2>Make every practice session count.</h2>
 
           <p>
-            Start a new practice session to analyze your music
-            and performance.
+            Upload a MusicXML score, select the measures you want
+            to practice, and analyze your recorded performance
+            with feedback on pitch, timing, and note duration.
           </p>
-        </div>
 
-        <div className="dashboard-features">
-          {/* Starts the complete Sprint 1 practice workflow */}
-          <div className="feature-card">
-            <div className="feature-icon">🎼</div>
+          <button
+            className="dashboard-primary-button"
+            onClick={() => navigate('/practice')}
+          >
+            Start Practice Session
+            <span aria-hidden="true">→</span>
+          </button>
+        </section>
 
-            <h3>New Practice Session</h3>
-
+        {/* Informational overview of the existing workflow */}
+        <section className="dashboard-workflow-section">
+          <div className="dashboard-section-heading">
+            <h2>How It Works</h2>
             <p>
-              Upload a MusicXML score, review the extracted score
-              information, and submit a recorded performance for
-              analysis.
+              Three simple steps to review your performance.
             </p>
-
-            <button
-              className="feature-button"
-              onClick={() => navigate('/practice')}
-            >
-              Start Practice Session
-            </button>
           </div>
-        </div>
+
+          <div className="dashboard-workflow-grid">
+            {/* Step 1 */}
+            <div className="dashboard-step-card">
+              <div className="dashboard-step-number">01</div>
+              <div className="dashboard-step-icon">🎵</div>
+
+              <h3>Upload Your Score</h3>
+
+              <p>
+                Upload a MusicXML file to begin your
+                practice session.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="dashboard-step-card">
+              <div className="dashboard-step-number">02</div>
+              <div className="dashboard-step-icon">🎯</div>
+
+              <h3>Select Your Measures</h3>
+
+              <p>
+                Choose the starting and ending measures
+                you want to practice.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="dashboard-step-card">
+              <div className="dashboard-step-number">03</div>
+              <div className="dashboard-step-icon">📊</div>
+
+              <h3>Review Your Feedback</h3>
+
+              <p>
+                Upload your recorded performance and review
+                pitch, timing, and duration feedback.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   )

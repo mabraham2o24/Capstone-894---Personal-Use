@@ -166,15 +166,8 @@ function ScoreProcessing() {
                   (note, index) => (
                     <tr key={index}>
                       <td>{index + 1}</td>
-
-                      <td>
-                        {note.pitches.join(', ')}
-                      </td>
-
-                      <td>
-                        {note.duration_quarterLength}
-                      </td>
-
+                      <td>{note.pitches.join(', ')}</td>
+                      <td>{note.duration_quarterLength}</td>
                       <td>{note.offset}</td>
                     </tr>
                   )
@@ -192,13 +185,14 @@ function ScoreProcessing() {
             Enter the starting and ending measures you want to practice.
           </p>
 
-          <div className="summary-grid">
+          <div className="measure-input-grid">
             <div>
               <label htmlFor="start-measure">
                 Starting Measure
               </label>
 
               <input
+                className="measure-input"
                 id="start-measure"
                 type="number"
                 min="1"
@@ -219,6 +213,7 @@ function ScoreProcessing() {
               </label>
 
               <input
+                className="measure-input"
                 id="end-measure"
                 type="number"
                 min="1"

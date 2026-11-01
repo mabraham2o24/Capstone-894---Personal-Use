@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 function PracticeSession() {
-  // Allows this page to navigate to other application pages.
+  // Allows navigation between application pages.
   const navigate = useNavigate()
 
   // Stores the selected MusicXML file.
@@ -23,7 +23,7 @@ function PracticeSession() {
     }
   }
 
-  // Creates a practice session and uploads the selected MusicXML score.
+  // Creates a practice session and uploads the selected score.
   const handleUpload = async () => {
     if (!selectedFile) {
       setMessage('Please choose a MusicXML file first.')
@@ -52,7 +52,7 @@ function PracticeSession() {
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      // Upload the MusicXML score to the new practice session.
+      // Upload the MusicXML score.
       const uploadResponse = await fetch(
         `http://127.0.0.1:8000/sessions/${sessionData.session_id}/upload-score`,
         {
@@ -69,8 +69,7 @@ function PracticeSession() {
         )
       }
 
-      // After successful processing, go to the Score Processing page.
-      // The session ID and score results are passed to that page.
+      // Navigate to the Score Processing page.
       navigate('/score-processing', {
         state: {
           sessionId: sessionData.session_id,
@@ -86,52 +85,72 @@ function PracticeSession() {
 
   return (
     <div className="practice-page">
-      <div className="practice-card">
-        <button
-          className="back-button"
-          onClick={() => navigate('/dashboard')}
-        >
-          ← Back to Dashboard
-        </button>
+      <div className="practice-card practice-card-simple">
 
-        <h1>New Practice Session</h1>
+        {/* Back navigation */}
+        <div className="practice-simple-topbar">
+          <button
+            className="back-button"
+            onClick={() => navigate('/dashboard')}
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
 
-        <p className="subtitle">
-          Upload a MusicXML score to begin your practice session.
-        </p>
+        {/* Page heading */}
+        <div className="practice-simple-heading">
+          <h1>New Practice Session</h1>
 
-        <div className="upload-section">
-          <label className="file-label">
+          <p className="subtitle">
+            Upload your MusicXML score to get started.
+          </p>
+        </div>
+
+        {/* File upload section */}
+        <div className="practice-simple-upload">
+          <div className="practice-simple-upload-header">
+            <h2>Upload Music Score</h2>
+
+            <p>
+              Select a MusicXML file from your device.
+            </p>
+          </div>
+
+          <label className="file-label practice-simple-file-label">
             Choose MusicXML File
 
             <input
               type="file"
               accept=".xml,.musicxml,.mxl"
               onChange={handleFileChange}
+              disabled={loading}
             />
           </label>
 
+          {/* Selected file information */}
           {selectedFile && (
-            <div className="selected-file">
-              Selected file:
+            <div className="practice-simple-selected-file">
+              <span>Selected File</span>
               <strong>{selectedFile.name}</strong>
             </div>
           )}
 
           <button
-            className="upload-button"
+            className="upload-button practice-simple-upload-button"
             onClick={handleUpload}
             disabled={loading}
           >
-            {loading ? 'Processing...' : 'Upload Score'}
+            {loading ? 'Processing...' : 'Upload Score →'}
           </button>
         </div>
 
+        {/* Error messages */}
         {message && (
           <div className="message">
             {message}
           </div>
         )}
+
       </div>
     </div>
   )
