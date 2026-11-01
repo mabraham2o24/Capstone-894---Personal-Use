@@ -125,3 +125,44 @@ def test_rhythmic_accuracy_in_performance_analysis():
     assert result["rhythmic_accuracy"]["accuracy_percent"] == 100.0
     assert result["rhythmic_accuracy"]["onset_intervals_evaluated"] == 2
     assert result["rhythmic_accuracy"]["durations_evaluated"] == 3
+
+
+
+def test_missing_and_additional_notes_are_excluded():
+    timing = {
+        "results": [
+            {"expected_interval": 0.0, "performed_interval": 0.0},
+            {"expected_interval": 0.5, "performed_interval": 0.5},
+        ]
+    }
+
+    expected = [
+        {"duration": 1.0},
+        {"duration": 1.0},
+        {"duration": 1.0},
+    ]
+
+    performed = [
+        {"measured_duration": 0.5},
+        {"measured_duration": 0.5},
+        {"measured_duration": 0.5},
+    ]
+
+    alignment = make_alignment([
+        "match",
+        "deletion",
+        "insertion",
+        "match",
+    ])
+
+    result = calculate_rhythmic_accuracy(
+        timing,
+        expected,
+        performed,
+        alignment,
+        seconds_per_beat=0.5,
+    )
+
+    assert result["accuracy_percent"] == 100.0
+    assert result["onset_intervals_evaluated"] == 1
+    assert result["durations_evaluated"] == 2

@@ -7,4 +7,5 @@ psycopg2-binary
 python-dotenv
 librosa
 pytest
-httpx2
+httpx
+psycopg[binary]

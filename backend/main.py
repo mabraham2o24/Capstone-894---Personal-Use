@@ -36,6 +36,8 @@ from music_analysis.score_parser import (
     extract_tempo,
 )
 from music_analysis.feedback_formatter import format_note_feedback
+from music_analysis.problem_areas import identify_problem_areas
+from music_analysis.performance_summary import generate_performance_summary
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -193,6 +195,10 @@ async def upload_audio(
 
         note_feedback = []
 
+        problem_areas = []
+
+        performance_summary = None
+
         if (
             session.score_summary
             and session.score_summary.get("note_details")
@@ -270,6 +276,17 @@ async def upload_audio(
             note_feedback = format_note_feedback(
                 expected_events, performance_analysis,
             )
+
+            problem_areas = identify_problem_areas(
+                expected_events,
+                note_feedback,
+            )
+
+            performance_summary = generate_performance_summary(
+                performance_analysis,
+                note_feedback,
+                problem_areas,
+            )
             
     except Exception as exc:
         raise HTTPException(
@@ -296,6 +313,8 @@ async def upload_audio(
         "silence_regions": silence_regions,
         "performance_analysis": performance_analysis,
         "note_feedback": note_feedback,
+        "problem_areas": problem_areas,
+        "performance_summary": performance_summary,
     }
 
 
