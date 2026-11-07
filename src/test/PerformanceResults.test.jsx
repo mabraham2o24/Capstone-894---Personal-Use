@@ -8,7 +8,6 @@ import {
   Route,
   useLocation,
 } from 'react-router-dom'
-
 import PerformanceResults from '../pages/PerformanceResults.jsx'
 
 // Sample MusicXML information from the previous pages.
@@ -251,6 +250,30 @@ function createSprint3Session() {
   })
 }
 
+// Session with insufficient audio data for UAT-06.
+function createInsufficientAudioSession() {
+  return createValidSession({
+    filename: 'canon_measures_3_6_insufficient_data.wav',
+    status: 'audio_analyzed',
+    detected_pitches: ['F#5'],
+    note_events: [],
+    note_feedback: [],
+    performance_summary: null,
+  })
+}
+
+// Session with successful analysis and no problem areas.
+function createNoProblemAreasSession() {
+  return createValidSession({
+    ...mockAudioResult,
+    status: 'audio_analyzed',
+    performance_summary: {
+      ...mockPerformanceSummary,
+      problem_areas: [],
+    },
+  })
+}
+
 // Get the Performance Feedback table.
 function getFeedbackTable() {
   const heading = screen.getByRole('heading', {
@@ -303,7 +326,7 @@ describe('Performance Results Page Tests', () => {
 
   // TEST 1: Verify the redesigned audio-processing summary.
   test('displays audio-processing summary', () => {
-    renderPerformanceResults(createValidSession())
+    renderPerformanceResults(createSprint3Session())
 
     expect(
       screen.getByText(/Audio successfully processed/i)
@@ -830,6 +853,7 @@ describe('Performance Results Page Tests', () => {
     renderPerformanceResults(createSprint3Session())
 
     const card = getErrorLocationCard(4)
+
     const rows = within(card)
       .getByRole('table')
       .querySelectorAll('tbody tr')
@@ -891,12 +915,13 @@ describe('Performance Results Page Tests', () => {
   })
 
   // TEST 27: Missing performance summary.
+  // Updated for UAT-06 insufficient audio data handling.
   test('handles audio results without a performance summary', () => {
     renderPerformanceResults(createValidSession())
 
     expect(
       screen.getByText(
-        'No performance summary was returned for this recording.'
+        'Performance metrics could not be calculated from this recording.'
       )
     ).toBeInTheDocument()
 
@@ -907,40 +932,38 @@ describe('Performance Results Page Tests', () => {
     expect(
       within(errorGrid).getAllByText('N/A')
     ).toHaveLength(3)
+
+    expect(
+      screen.getByText('Insufficient Data')
+    ).toBeInTheDocument()
   })
 
   // TEST 28: No problem areas.
+  // Updated for Keya's second UAT suggestion.
   test('handles an empty problem-area list', () => {
-    const audioResult = {
-      ...mockAudioResult,
-      performance_summary: {
-        ...mockPerformanceSummary,
-        problem_areas: [],
-      },
-    }
-
-    renderPerformanceResults(createValidSession(audioResult))
+    renderPerformanceResults(createNoProblemAreasSession())
 
     expect(
       screen.getByText(
-        'No problem areas were identified for this performance.'
+        '✓ No problem areas were identified for this performance.'
       )
     ).toBeInTheDocument()
 
     expect(
       screen.getByText(
-        'No problem-area error locations were identified.'
+        '✓ No problem-area error locations were identified.'
       )
     ).toBeInTheDocument()
   })
 
   // TEST 29: Missing note-level feedback.
+  // Updated for UAT-06 insufficient audio data handling.
   test('handles a performance without note-level feedback', () => {
     renderPerformanceResults(createValidSession())
 
     expect(
       screen.getByText(
-        'No note-level feedback was returned for this performance.'
+        'Note-level feedback is unavailable because there was not enough audio data for analysis.'
       )
     ).toBeInTheDocument()
   })
@@ -992,6 +1015,198 @@ describe('Performance Results Page Tests', () => {
         name: /Expected Audio/i,
       })
     ).toBeDisabled()
+  })
+
+  // TEST 32 - UAT-06: Insufficient audio warning.
+  test('displays an insufficient audio data warning', () => {
+    renderPerformanceResults(createInsufficientAudioSession())
+
+    expect(
+      screen.getAllByText('Insufficient Audio Data').length
+    ).toBeGreaterThan(0)
+
+    expect(
+      screen.getByText(
+        /Please upload a longer recording and try again/i
+      )
+    ).toBeInTheDocument()
+  })
+
+  // TEST 33 - UAT-06: Session status badge.
+  test('displays Insufficient Data instead of Analysis Complete', () => {
+    renderPerformanceResults(createInsufficientAudioSession())
+
+    const overview = document.querySelector(
+      '.performance-session-overview'
+    )
+
+    expect(
+      within(overview).getByText('Insufficient Data')
+    ).toBeInTheDocument()
+
+    expect(
+      within(overview).queryByText('Analysis Complete')
+    ).not.toBeInTheDocument()
+  })
+
+  // TEST 34 - UAT-06: Hide misleading success messages.
+  test('does not display success messages for insufficient audio', () => {
+    renderPerformanceResults(createInsufficientAudioSession())
+
+    expect(
+      screen.queryByText(/Audio successfully processed/i)
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Analysis Complete')
+    ).not.toBeInTheDocument()
+  })
+
+  // TEST 35 - UAT-06: Valid audio still shows successful analysis.
+  test('displays Analysis Complete for valid performance metrics', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    expect(
+      screen.getByText('Analysis Complete')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(/Audio successfully processed/i)
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Insufficient Audio Data')
+    ).not.toBeInTheDocument()
+  })
+
+  // TEST 36 - UAT-06: Zero accuracy is a valid metric.
+  test('does not classify zero percent accuracy as insufficient data', () => {
+    const audioResult = {
+      ...mockAudioResult,
+      performance_summary: {
+        ...mockPerformanceSummary,
+        metrics: {
+          ...mockPerformanceSummary.metrics,
+          pitch_accuracy: {
+            accuracy_percent: 0,
+            correct_notes: 0,
+            total_expected_notes: 16,
+          },
+        },
+      },
+    }
+
+    renderPerformanceResults(createValidSession(audioResult))
+
+    expect(
+      screen.getByText('Analysis Complete')
+    ).toBeInTheDocument()
+
+    const card = getMetricCard('Pitch Accuracy')
+
+    expect(
+      within(card).getByText('0.00%')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Insufficient Audio Data')
+    ).not.toBeInTheDocument()
+  })
+
+  // TEST 37 - UAT: Successful analysis shows green empty states.
+  test('displays green success styling when no problem areas are found', () => {
+    renderPerformanceResults(createNoProblemAreasSession())
+
+    const problemMessage = screen.getByText(
+      '✓ No problem areas were identified for this performance.'
+    )
+
+    const errorMessage = screen.getByText(
+      '✓ No problem-area error locations were identified.'
+    )
+
+    expect(problemMessage).toHaveClass(
+      'performance-empty-success'
+    )
+
+    expect(errorMessage).toHaveClass(
+      'performance-empty-success'
+    )
+
+    expect(problemMessage).not.toHaveClass(
+      'performance-empty-neutral'
+    )
+
+    expect(errorMessage).not.toHaveClass(
+      'performance-empty-neutral'
+    )
+
+    expect(
+      screen.getByText('Analysis Complete')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 38 - UAT: Insufficient audio shows neutral empty states.
+  test('displays neutral messages when problem areas cannot be evaluated', () => {
+    renderPerformanceResults(createInsufficientAudioSession())
+
+    const problemMessage = screen.getByText(
+      'Problem areas could not be determined because there was not enough audio data for analysis.'
+    )
+
+    const errorMessage = screen.getByText(
+      'Error locations could not be determined because there was not enough audio data for analysis.'
+    )
+
+    expect(problemMessage).toHaveClass(
+      'performance-empty-neutral'
+    )
+
+    expect(errorMessage).toHaveClass(
+      'performance-empty-neutral'
+    )
+
+    expect(problemMessage).not.toHaveClass(
+      'performance-empty-success'
+    )
+
+    expect(errorMessage).not.toHaveClass(
+      'performance-empty-success'
+    )
+
+    expect(
+      screen.getByText('Insufficient Data')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 39 - UAT: Existing problem-area cards remain unchanged.
+  test('preserves problem-area cards when errors are detected', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const measure4 = getProblemCard(4)
+    const measure5 = getProblemCard(5)
+
+    expect(measure4).toBeDefined()
+    expect(measure5).toBeDefined()
+
+    expect(getErrorLocationCard(4)).toBeDefined()
+    expect(getErrorLocationCard(5)).toBeDefined()
+
+    expect(
+      document.querySelectorAll('.performance-problem-card')
+    ).toHaveLength(2)
+
+    expect(
+      document.querySelectorAll('.error-location-measure-card')
+    ).toHaveLength(2)
+
+    expect(
+      document.querySelector('.performance-empty-success')
+    ).not.toBeInTheDocument()
+
+    expect(
+      document.querySelector('.performance-empty-neutral')
+    ).not.toBeInTheDocument()
   })
 
 })

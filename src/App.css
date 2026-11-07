@@ -3733,3 +3733,31 @@
     padding: 6px 10px;
   }
 }
+
+/* =========================================================
+   SPRINT 3 - PROBLEM AREA EMPTY STATES
+   ========================================================= */
+
+/* Successful analysis with no problem areas */
+.performance-results-page .performance-empty-success {
+  margin-top: 20px;
+  padding: 16px 20px;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.10);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86efac;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Analysis could not determine problem areas */
+.performance-results-page .performance-empty-neutral {
+  margin-top: 20px;
+  padding: 16px 20px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}

@@ -2,7 +2,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 
 function PerformanceResults() {
-  // Navigation and session information
+  //* Navigation and session information*
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -12,29 +12,45 @@ function PerformanceResults() {
   const startMeasure = location.state?.startMeasure
   const endMeasure = location.state?.endMeasure
 
-  // Note-level feedback
+  //* Note-level feedback*
   const noteFeedback = audioResult?.note_feedback ?? []
 
-  // Sprint 3 performance summary
+  //* Sprint 3 performance summary*
   const performanceSummary = audioResult?.performance_summary
   const metrics = performanceSummary?.metrics
 
-  // US-14, US-15, US-16 - Performance accuracy metrics
+  //* US-14, US-15, US-16 - Performance accuracy metrics*
   const pitchAccuracy = metrics?.pitch_accuracy
   const rhythmicAccuracy = metrics?.rhythmic_accuracy
   const tempoConsistency = metrics?.tempo_consistency
   const noteSequenceAccuracy = metrics?.note_sequence_accuracy
 
-  // US-17 - Problem areas
+  //* US-17 - Problem areas*
   const problemAreas =
     performanceSummary?.problem_areas ??
     audioResult?.problem_areas ??
     []
 
-  // US-18 - Detected error counts
+  //* US-18 - Detected error counts*
   const errorCounts = performanceSummary?.error_counts
 
-  // Format note feedback statuses
+  //* UAT-06 - Detect when the backend could not calculate metrics.*
+  //* A valid accuracy of 0% must NOT count as missing data.*
+  const hasCalculatedMetrics = [
+    pitchAccuracy?.accuracy_percent,
+    rhythmicAccuracy?.accuracy_percent,
+    tempoConsistency?.consistency_percent,
+    noteSequenceAccuracy?.accuracy_percent,
+  ].some(
+    (value) =>
+      value != null &&
+      value !== '' &&
+      Number.isFinite(Number(value))
+  )
+
+  const hasInsufficientAudioData = !hasCalculatedMetrics
+
+  //* Format note feedback statuses*
   const formatStatus = (status) => {
     if (status == null || status === '') {
       return 'Not available'
@@ -43,7 +59,7 @@ function PerformanceResults() {
     return String(status).replace(/_/g, ' ')
   }
 
-  // Apply existing status colors
+  //* Apply existing status colors*
   const getStatusClass = (status) => {
     if (status == null || status === '') {
       return 'feedback-status-neutral'
@@ -81,7 +97,7 @@ function PerformanceResults() {
     return 'feedback-status-neutral'
   }
 
-  // Display unavailable values
+  //* Display unavailable values*
   const formatValue = (value) => {
     if (value == null || value === '') {
       return 'N/A'
@@ -90,16 +106,20 @@ function PerformanceResults() {
     return String(value)
   }
 
-  // Backend metric percentages are already on a 0-100 scale
+  //* Backend metric percentages are already on a 0-100 scale*
   const formatPercent = (value) => {
-    if (value == null || !Number.isFinite(Number(value))) {
+    if (
+      value == null ||
+      value === '' ||
+      !Number.isFinite(Number(value))
+    ) {
       return 'N/A'
     }
 
     return `${Number(value).toFixed(2)}%`
   }
 
-  // Keep progress bar widths between 0% and 100%
+  //* Keep progress bar widths between 0% and 100%*
   const getProgressWidth = (value) => {
     if (value == null || value === '') {
       return '0%'
@@ -114,13 +134,12 @@ function PerformanceResults() {
     return `${Math.max(0, Math.min(100, percentage))}%`
   }
 
-  // Make error type names easier to read
+  //* Make error type names easier to read*
   const formatErrorType = (errorType) => {
     return String(errorType).replace(/_/g, ' ')
   }
 
-  // Create CSS classes for color-coded error types
-  // Reused in Problem Areas and Error Locations
+  //* Create CSS classes for color-coded error types*
   const getErrorTypeClass = (errorType) => {
     return `error-type-${String(errorType)
       .toLowerCase()
@@ -128,7 +147,7 @@ function PerformanceResults() {
       .replace(/\s+/g, '-')}`
   }
 
-  // Determine whether a played note is missing
+  //* Determine whether a played note is missing*
   const isMissingPlayedNote = (errorLocation) => {
     const errors = errorLocation.errors ?? []
 
@@ -137,7 +156,7 @@ function PerformanceResults() {
     )
   }
 
-  // Format selected measure range for Session Overview
+  //* Format selected measure range for Session Overview*
   const formatMeasureRange = () => {
     if (startMeasure == null && endMeasure == null) {
       return 'N/A'
@@ -147,14 +166,17 @@ function PerformanceResults() {
       return formatValue(endMeasure)
     }
 
-    if (endMeasure == null || String(startMeasure) === String(endMeasure)) {
+    if (
+      endMeasure == null ||
+      String(startMeasure) === String(endMeasure)
+    ) {
       return formatValue(startMeasure)
     }
 
     return `${startMeasure}–${endMeasure}`
   }
 
-  // Prevent errors when opening the page without session data
+  //* Prevent errors when opening the page without session data*
   if (!sessionId || !audioResult) {
     return (
       <div className="performance-results-page">
@@ -180,7 +202,7 @@ function PerformanceResults() {
     <div className="performance-results-page">
       <div className="performance-card">
 
-        {/* Back to performance upload */}
+        {/** Back to performance upload **/}
         <button
           className="back-button"
           onClick={() =>
@@ -197,38 +219,100 @@ function PerformanceResults() {
           ← Back to Performance Upload
         </button>
 
-        {/* =====================================================
-            PERFORMANCE RESULTS HEADING
-            ===================================================== */}
-
+        {/** PERFORMANCE RESULTS HEADING **/}
         <div className="performance-results-header">
           <h1>Performance Results</h1>
 
-          <p className="success-text">
-            ✓ Audio successfully processed.
-          </p>
+          {hasInsufficientAudioData ? (
+            <p
+              className="performance-insufficient-heading"
+              role="status"
+              style={{
+                color: '#fbbf24',
+                fontWeight: 700,
+                textAlign: 'center',
+              }}
+            >
+              ⚠ Insufficient Audio Data
+            </p>
+          ) : (
+            <p className="success-text">
+              ✓ Audio successfully processed.
+            </p>
+          )}
         </div>
 
-        {/* =====================================================
-            SESSION OVERVIEW
-            ===================================================== */}
+        {/** UAT-06 - Insufficient audio explanation **/}
+        {hasInsufficientAudioData && (
+          <div
+            className="performance-insufficient-warning"
+            role="alert"
+            style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.09)',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              borderRadius: '12px',
+              padding: '20px 24px',
+              marginBottom: '24px',
+              color: '#f8fafc',
+            }}
+          >
+            <h2
+              style={{
+                color: '#fbbf24',
+                marginTop: 0,
+                marginBottom: '10px',
+                fontSize: '1.15rem',
+              }}
+            >
+              Insufficient Audio Data
+            </h2>
 
+            <p style={{ margin: 0, lineHeight: 1.7 }}>
+              The uploaded recording does not contain enough
+              audio data to calculate performance metrics.
+              Please upload a longer recording and try again.
+            </p>
+
+            <p
+              style={{
+                color: '#cbd5e1',
+                marginBottom: 0,
+                fontSize: '0.9rem',
+              }}
+            >
+              Your session information and any detected pitches
+              are still available below.
+            </p>
+          </div>
+        )}
+
+        {/** SESSION OVERVIEW **/}
         <div className="performance-session-overview">
-
           <div className="performance-session-heading">
             <h2>Session Overview</h2>
 
-            <span className="performance-analysis-badge">
-              Analysis Complete
+            <span
+              className="performance-analysis-badge"
+              style={
+                hasInsufficientAudioData
+                  ? {
+                      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                      borderColor: 'rgba(245, 158, 11, 0.5)',
+                      color: '#fbbf24',
+                    }
+                  : undefined
+              }
+            >
+              {hasInsufficientAudioData
+                ? 'Insufficient Data'
+                : 'Analysis Complete'}
             </span>
           </div>
 
-          {/* First row - recording information */}
+          {/** First row - recording information **/}
           <div className="performance-session-info-grid">
-
             <div className="performance-session-info-card">
               <span>Audio File</span>
-
               <strong>
                 {formatValue(audioResult.filename)}
               </strong>
@@ -236,36 +320,27 @@ function PerformanceResults() {
 
             <div className="performance-session-info-card">
               <span>Session ID</span>
-
               <strong>
                 {formatValue(sessionId)}
               </strong>
             </div>
-
           </div>
 
-          {/* Second row - session statistics */}
+          {/** Second row - session statistics **/}
           <div className="performance-session-stats-grid">
-
             <div className="performance-session-stat-card">
               <span className="performance-session-stat-icon">
                 ♫
               </span>
-
               <span>Selected Measures</span>
-
-              <strong>
-                {formatMeasureRange()}
-              </strong>
+              <strong>{formatMeasureRange()}</strong>
             </div>
 
             <div className="performance-session-stat-card">
               <span className="performance-session-stat-icon">
                 ♪
               </span>
-
               <span>Detected Pitches</span>
-
               <strong>
                 {audioResult.detected_pitches?.length ?? 0}
               </strong>
@@ -275,25 +350,18 @@ function PerformanceResults() {
               <span className="performance-session-stat-icon">
                 ≡
               </span>
-
               <span>Note Events</span>
-
               <strong>
                 {audioResult.note_events?.length ?? 0}
               </strong>
             </div>
-
           </div>
         </div>
 
-        {/* =====================================================
-            THREE-COLUMN PERFORMANCE RESULTS LAYOUT
-            ===================================================== */}
-
+        {/** THREE-COLUMN PERFORMANCE RESULTS LAYOUT **/}
         <div className="performance-results-layout">
 
-          {/* LEFT COLUMN - PERFORMANCE SUMMARY */}
-
+          {/** LEFT COLUMN - PERFORMANCE SUMMARY **/}
           <div className="performance-results-column">
             <h2>Performance Summary</h2>
 
@@ -304,15 +372,16 @@ function PerformanceResults() {
 
             {!performanceSummary ? (
               <p className="message">
-                No performance summary was returned for this recording.
+                {hasInsufficientAudioData
+                  ? 'Performance metrics could not be calculated from this recording.'
+                  : 'No performance summary was returned for this recording.'}
               </p>
             ) : (
               <div className="summary-grid">
 
-                {/* US-14 - Pitch Accuracy */}
+                {/** US-14 - Pitch Accuracy **/}
                 <div>
                   <span>Pitch Accuracy</span>
-
                   <strong>
                     {formatPercent(pitchAccuracy?.accuracy_percent)}
                   </strong>
@@ -335,10 +404,9 @@ function PerformanceResults() {
                   </p>
                 </div>
 
-                {/* US-15 - Rhythmic Accuracy */}
+                {/** US-15 - Rhythmic Accuracy **/}
                 <div>
                   <span>Rhythmic Accuracy</span>
-
                   <strong>
                     {formatPercent(rhythmicAccuracy?.accuracy_percent)}
                   </strong>
@@ -369,10 +437,9 @@ function PerformanceResults() {
                   </p>
                 </div>
 
-                {/* US-16 - Tempo Consistency */}
+                {/** US-16 - Tempo Consistency **/}
                 <div>
                   <span>Tempo Consistency</span>
-
                   <strong>
                     {formatPercent(
                       tempoConsistency?.consistency_percent
@@ -398,10 +465,9 @@ function PerformanceResults() {
                   </p>
                 </div>
 
-                {/* Note Sequence Accuracy */}
+                {/** Note Sequence Accuracy **/}
                 <div>
                   <span>Note Sequence Accuracy</span>
-
                   <strong>
                     {formatPercent(
                       noteSequenceAccuracy?.accuracy_percent
@@ -427,13 +493,11 @@ function PerformanceResults() {
                     notes correct
                   </p>
                 </div>
-
               </div>
             )}
           </div>
 
-          {/* MIDDLE COLUMN - PERFORMANCE FEEDBACK */}
-
+          {/** MIDDLE COLUMN - PERFORMANCE FEEDBACK **/}
           <div className="performance-results-column">
             <h2>Performance Feedback</h2>
 
@@ -444,7 +508,9 @@ function PerformanceResults() {
 
             {noteFeedback.length === 0 ? (
               <p className="message">
-                No note-level feedback was returned for this performance.
+                {hasInsufficientAudioData
+                  ? 'Note-level feedback is unavailable because there was not enough audio data for analysis.'
+                  : 'No note-level feedback was returned for this performance.'}
               </p>
             ) : (
               <div className="table-container">
@@ -516,8 +582,7 @@ function PerformanceResults() {
             )}
           </div>
 
-          {/* RIGHT COLUMN - DISPLAY OPTIONS */}
-
+          {/** RIGHT COLUMN - DISPLAY OPTIONS **/}
           <div className="performance-results-column performance-options-column">
             <h2>Display Options</h2>
 
@@ -541,12 +606,11 @@ function PerformanceResults() {
               Audio playback will be available in a future sprint.
             </p>
 
-            {/* Color key for errors and future annotated sheet music */}
+            {/** Color key for errors **/}
             <div className="performance-legend">
               <h3>Legend</h3>
 
               <div className="performance-legend-items">
-
                 <div className="performance-legend-item">
                   <span className="legend-color legend-timing"></span>
                   <span>Timing Error</span>
@@ -571,18 +635,12 @@ function PerformanceResults() {
                   <span className="legend-color legend-additional"></span>
                   <span>Additional Note</span>
                 </div>
-
               </div>
             </div>
           </div>
-
         </div>
 
-        {/* =====================================================
-            PERFORMANCE ERRORS & PROBLEM AREAS
-            US-17 AND US-18
-            ===================================================== */}
-
+        {/** PERFORMANCE ERRORS & PROBLEM AREAS **/}
         <div className="performance-section performance-errors-section">
           <h2>Performance Errors &amp; Problem Areas</h2>
 
@@ -591,7 +649,7 @@ function PerformanceResults() {
             require additional practice.
           </p>
 
-          {/* US-18 - Detected Error Counts */}
+          {/** US-18 - Detected Error Counts **/}
           <h3 className="performance-errors-heading">
             Detected Error Counts
           </h3>
@@ -619,7 +677,7 @@ function PerformanceResults() {
             </div>
           </div>
 
-          {/* US-17 - Problem Area Overview */}
+          {/** US-17 - Problem Area Overview **/}
           <div className="performance-problem-overview">
             <h3>Problem Areas</h3>
 
@@ -629,8 +687,16 @@ function PerformanceResults() {
             </p>
 
             {problemAreas.length === 0 ? (
-              <p className="message">
-                No problem areas were identified for this performance.
+              <p
+                className={
+                  hasInsufficientAudioData
+                    ? 'performance-empty-neutral'
+                    : 'performance-empty-success'
+                }
+              >
+                {hasInsufficientAudioData
+                  ? 'Problem areas could not be determined because there was not enough audio data for analysis.'
+                  : '✓ No problem areas were identified for this performance.'}
               </p>
             ) : (
               <div className="performance-problem-list">
@@ -711,11 +777,7 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/* =====================================================
-            ERROR LOCATIONS - REDESIGNED
-            Color-coded errors and individual measure cards
-            ===================================================== */}
-
+        {/** ERROR LOCATIONS **/}
         <div className="performance-section performance-error-locations-section">
           <h2>Error Locations</h2>
 
@@ -725,8 +787,16 @@ function PerformanceResults() {
           </p>
 
           {problemAreas.length === 0 ? (
-            <p className="message">
-              No problem-area error locations were identified.
+            <p
+              className={
+                hasInsufficientAudioData
+                  ? 'performance-empty-neutral'
+                  : 'performance-empty-success'
+              }
+            >
+              {hasInsufficientAudioData
+                ? 'Error locations could not be determined because there was not enough audio data for analysis.'
+                : '✓ No problem-area error locations were identified.'}
             </p>
           ) : (
             <div className="error-locations-list">
@@ -735,7 +805,6 @@ function PerformanceResults() {
                   className="error-location-measure-card"
                   key={`locations-${area.measure}-${index}`}
                 >
-                  {/* Measure heading and practice status */}
                   <div className="error-location-measure-header">
                     <h3>
                       Measure {formatValue(area.measure)}
@@ -774,14 +843,12 @@ function PerformanceResults() {
                           {area.error_locations.map(
                             (errorLocation, errorIndex) => (
                               <tr key={errorIndex}>
-                                {/* Beat */}
                                 <td>
                                   <span className="error-location-beat">
                                     {formatValue(errorLocation.beat)}
                                   </span>
                                 </td>
 
-                                {/* Expected note */}
                                 <td>
                                   <span className="error-location-note">
                                     {formatValue(
@@ -790,7 +857,6 @@ function PerformanceResults() {
                                   </span>
                                 </td>
 
-                                {/* Played note - highlight missing notes */}
                                 <td>
                                   <span
                                     className={`error-location-note ${
@@ -805,7 +871,6 @@ function PerformanceResults() {
                                   </span>
                                 </td>
 
-                                {/* Color-coded error labels */}
                                 <td>
                                   {errorLocation.errors?.length ? (
                                     <div className="error-location-error-tags">
@@ -841,10 +906,7 @@ function PerformanceResults() {
           )}
         </div>
 
-        {/* =====================================================
-            DETECTED PITCHES - REDESIGNED
-            ===================================================== */}
-
+        {/** DETECTED PITCHES **/}
         <div className="performance-section performance-detected-pitches-section">
           <h2>Detected Pitches</h2>
 
@@ -881,7 +943,7 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/* Back to dashboard */}
+        {/** Back to dashboard **/}
         <div className="page-actions">
           <button
             className="upload-button"
