@@ -1660,3 +1660,2076 @@
     min-width: 0;
   }
 }
+
+/* =========================================================
+   PERFORMANCE RESULTS - THREE COLUMN WIREFRAME LAYOUT
+   ========================================================= */
+
+/* Allow the results page to use more screen space */
+.performance-results-page .performance-card {
+  max-width: 1600px;
+}
+
+/* Main three-column layout */
+.performance-results-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 0.85fr);
+  gap: 20px;
+  margin-top: 30px;
+  align-items: start;
+}
+
+/* Individual columns */
+.performance-results-column {
+  min-width: 0;
+  padding: 22px;
+  background: #15181e;
+  border: 1px solid #303846;
+  border-radius: 12px;
+}
+
+/* Column headings */
+.performance-results-column h2 {
+  margin: 0 0 20px;
+  color: #ffffff;
+  font-size: 1.3rem;
+}
+
+/* Keep summary cards inside the left column */
+.performance-results-page .performance-results-column .summary-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* Keep feedback tables inside the middle column */
+.performance-results-column .table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Right column controls */
+.performance-display-options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.performance-display-options button {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #3a404c;
+  border-radius: 8px;
+  background: #232730;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+/* Disabled playback controls */
+.performance-display-options button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Empty legend placeholder */
+.performance-legend {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #303846;
+}
+
+.performance-legend h3 {
+  margin: 0 0 12px;
+  color: #ffffff;
+}
+
+/* Tablet layout */
+@media (max-width: 1100px) {
+  .performance-results-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .performance-results-column:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Mobile layout */
+@media (max-width: 700px) {
+  .performance-results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-results-column:last-child {
+    grid-column: auto;
+  }
+
+  .performance-results-column {
+    padding: 16px;
+  }
+}
+
+/* =========================================================
+   PERFORMANCE RESULTS - WIDER THREE COLUMN LAYOUT
+   ========================================================= */
+
+/* Allow the page to use almost the entire browser width */
+.performance-results-page {
+  padding: 30px 20px;
+  box-sizing: border-box;
+}
+
+.performance-results-page .performance-card {
+  width: 100%;
+  max-width: 1900px;
+  padding: 30px;
+}
+
+/* Give each column more room */
+.performance-results-page .performance-results-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(250px, 1fr)
+    minmax(0, 2.5fr)
+    minmax(220px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* Reduce wasted space inside the columns */
+.performance-results-page .performance-results-column {
+  padding: 20px;
+}
+
+/* Keep the table from stretching outside its column */
+.performance-results-page .performance-results-column .table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Keep the table readable */
+.performance-results-page .performance-results-column .notes-table {
+  min-width: 950px;
+}
+
+/* Stack columns on smaller screens */
+@media (max-width: 1100px) {
+  .performance-results-page .performance-results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-results-page .performance-results-column:last-child {
+    grid-column: auto;
+  }
+}
+
+/* =========================================================
+   PERFORMANCE RESULTS - FULL WIDTH PAGE
+   ========================================================= */
+
+/* Expand the entire results page */
+.performance-results-page {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 30px 24px;
+  box-sizing: border-box;
+}
+
+/* Remove the width restriction on the main card */
+.performance-results-page .performance-card {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+/* Give the middle feedback column the most space */
+.performance-results-page .performance-results-layout {
+  width: 100%;
+  grid-template-columns:
+    minmax(260px, 1fr)
+    minmax(0, 3fr)
+    minmax(230px, 0.9fr);
+  gap: 24px;
+}
+
+/* Ensure columns can fit their content properly */
+.performance-results-page .performance-results-column {
+  min-width: 0;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1100px) {
+  .performance-results-page .performance-results-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   PERFORMANCE RESULTS - WIDER FEEDBACK TABLE
+   ========================================================= */
+
+/* Give the middle column more space */
+.performance-results-page .performance-results-layout {
+  grid-template-columns:
+    minmax(230px, 0.85fr)
+    minmax(0, 4fr)
+    minmax(200px, 0.75fr);
+  gap: 16px;
+}
+
+/* Reduce unnecessary padding in the middle column */
+.performance-results-page .performance-results-column:nth-child(2) {
+  padding: 18px 12px;
+}
+
+/* Allow the feedback table to use its available width */
+.performance-results-page
+.performance-results-column:nth-child(2) .notes-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: auto;
+}
+
+/* Make table cells slightly more compact */
+.performance-results-page
+.performance-results-column:nth-child(2) .notes-table th,
+.performance-results-page
+.performance-results-column:nth-child(2) .notes-table td {
+  padding: 12px 7px;
+  font-size: 14px;
+}
+
+/* Keep status labels compact */
+.performance-results-page
+.performance-results-column:nth-child(2) .feedback-status {
+  padding: 5px 7px;
+  font-size: 12px;
+}
+
+/* Preserve mobile responsiveness */
+@media (max-width: 1100px) {
+  .performance-results-page .performance-results-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   PERFORMANCE SUMMARY - ACCURACY PROGRESS BARS
+   ========================================================= */
+
+.performance-results-page .performance-progress-track {
+  width: 100%;
+  height: 10px;
+  margin: 12px 0;
+  padding: 0;
+  background: #303846;
+  border-radius: 999px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.performance-results-page .performance-progress-fill {
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* Pitch Accuracy - Green */
+.performance-results-page .pitch-progress {
+  background: #22c55e;
+}
+
+/* Rhythmic Accuracy - Blue */
+.performance-results-page .rhythm-progress {
+  background: #3b82f6;
+}
+
+/* Tempo Consistency - Orange */
+.performance-results-page .tempo-progress {
+  background: #f59e0b;
+}
+
+/* Note Sequence Accuracy - Purple */
+.performance-results-page .sequence-progress {
+  background: #a78bfa;
+}
+
+/* =========================================================
+   FIX PERFORMANCE SUMMARY PROGRESS BARS
+   ========================================================= */
+
+/* Override existing summary-grid card styles */
+.performance-results-page .summary-grid .performance-progress-track {
+  display: block;
+  width: 100%;
+  height: 10px;
+  min-height: 10px;
+  margin: 12px 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #303846;
+  box-shadow: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Override inherited styles on the filled portion */
+.performance-results-page .summary-grid .performance-progress-fill {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+
+/* Individual metric colors */
+.performance-results-page .summary-grid .pitch-progress {
+  background: #22c55e;
+}
+
+.performance-results-page .summary-grid .rhythm-progress {
+  background: #3b82f6;
+}
+
+.performance-results-page .summary-grid .tempo-progress {
+  background: #f59e0b;
+}
+
+.performance-results-page .summary-grid .sequence-progress {
+  background: #a78bfa;
+}
+
+/* =========================================================
+   PERFORMANCE RESULTS - DISPLAY OPTIONS REDESIGN
+   ========================================================= */
+
+.performance-results-page .performance-options-column {
+  text-align: left;
+}
+
+/* Main heading */
+.performance-results-page .performance-options-column h2 {
+  margin-bottom: 24px;
+  text-align: left;
+  font-size: 21px;
+}
+
+/* Playback controls heading */
+.performance-results-page .performance-options-label {
+  margin: 0 0 12px;
+  color: #b9c3d1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Playback button container */
+.performance-results-page .performance-options-column
+.performance-display-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Disabled buttons */
+.performance-results-page .performance-options-column
+.performance-display-options button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 12px;
+  border: 1px solid #384152;
+  border-radius: 9px;
+  background: #242933;
+  color: #8995a8;
+  font-size: 13px;
+  text-align: left;
+}
+
+/* Button icons */
+.performance-results-page .performance-options-column
+.performance-display-options button span {
+  font-size: 16px;
+}
+
+/* Keep controls visibly disabled */
+.performance-results-page .performance-options-column
+.performance-display-options button:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+/* Future sprint information */
+.performance-results-page .performance-options-note {
+  margin-top: 14px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Legend section */
+.performance-results-page .performance-options-column
+.performance-legend {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #303846;
+}
+
+.performance-results-page .performance-options-column
+.performance-legend h3 {
+  margin-bottom: 14px;
+  color: #ffffff;
+  font-size: 17px;
+  text-align: left;
+}
+
+/* Empty legend area for future annotated sheet music */
+.performance-results-page .performance-legend-placeholder {
+  min-height: 65px;
+  border: 1px solid #303846;
+  border-radius: 9px;
+  background: #1b1f27;
+}
+
+/* =========================================================
+   PERFORMANCE RESULTS - WIDER DISPLAY OPTIONS COLUMN
+   ========================================================= */
+
+/* Adjust the three-column proportions */
+.performance-results-page .performance-results-layout {
+  grid-template-columns:
+    minmax(220px, 0.85fr)
+    minmax(0, 4fr)
+    minmax(270px, 1.1fr);
+  gap: 18px;
+}
+
+/* Give Display Options comfortable internal spacing */
+.performance-results-page .performance-options-column {
+  padding: 24px;
+  min-width: 0;
+}
+
+/* Make the buttons fill the wider column */
+.performance-results-page .performance-options-column
+.performance-display-options button {
+  width: 100%;
+  padding: 14px 12px;
+  font-size: 14px;
+}
+
+/* Make the legend placeholder use the full width */
+.performance-results-page .performance-options-column
+.performance-legend-placeholder {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Preserve responsive behavior */
+@media (max-width: 1100px) {
+  .performance-results-page .performance-results-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   SPRINT 3 - PERFORMANCE ERRORS & PROBLEM AREAS
+   ========================================================= */
+
+/* Main full-width errors section */
+.performance-results-page .performance-errors-section {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 24px;
+}
+
+.performance-errors-section > h2 {
+  margin-bottom: 8px;
+}
+
+.performance-errors-section > .subtitle {
+  margin-bottom: 24px;
+}
+
+/* Detected Error Counts heading */
+.performance-errors-heading {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+/* Three error-count cards in one row */
+.performance-results-page .performance-error-count-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.performance-results-page .performance-error-count-grid > div {
+  min-width: 0;
+  padding: 20px;
+  text-align: center;
+}
+
+.performance-error-count-grid > div > span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.performance-error-count-grid > div > strong {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+/* =========================================================
+   PROBLEM AREAS OVERVIEW
+   ========================================================= */
+
+.performance-problem-overview {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.performance-problem-overview > h3 {
+  margin-bottom: 8px;
+}
+
+.performance-problem-overview > .subtitle {
+  margin-bottom: 20px;
+}
+
+/* Container for flagged measures */
+.performance-problem-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* Individual problem measure card */
+.performance-problem-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Measure heading and practice status */
+.performance-problem-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.performance-problem-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+/* Requires Practice / No Practice Required badge */
+.performance-practice-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Measure requires additional practice */
+.performance-practice-badge.practice-required {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+/* Measure does not require additional practice */
+.performance-practice-badge.practice-not-required {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+/* =========================================================
+   PROBLEM AREA STATISTICS
+   ========================================================= */
+
+/* Total Notes, Notes With Errors, Error Rate */
+.performance-results-page .performance-problem-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.performance-results-page .performance-problem-stats > div {
+  min-width: 0;
+  padding: 18px;
+  text-align: center;
+}
+
+.performance-problem-stats > div > span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.performance-problem-stats > div > strong {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* =========================================================
+   ERROR TYPE LABELS
+   ========================================================= */
+
+.performance-problem-card > h4 {
+  margin-top: 8px;
+  margin-bottom: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Arrange error types horizontally */
+.performance-error-types {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Individual error type */
+.performance-error-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* =========================================================
+   ERROR LOCATIONS - SEPARATE SECTION
+   Existing tables remain unchanged
+   ========================================================= */
+
+.performance-results-page .performance-error-locations-section {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 24px;
+}
+
+.performance-error-locations-section > h2 {
+  margin-bottom: 8px;
+}
+
+.performance-error-locations-section > .subtitle {
+  margin-bottom: 20px;
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .performance-results-page .performance-error-count-grid,
+  .performance-results-page .performance-problem-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-problem-card {
+    padding: 16px;
+  }
+
+  .performance-problem-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .performance-error-types {
+    gap: 8px;
+  }
+}
+
+/* =========================================================
+   SPRINT 3 - PERFORMANCE SUMMARY WIDTH IMPROVEMENTS
+   ========================================================= */
+
+/* Give Performance Summary more horizontal space */
+.performance-results-page .performance-results-layout {
+  grid-template-columns:
+    minmax(300px, 1.2fr)
+    minmax(0, 3.5fr)
+    minmax(270px, 1.1fr);
+
+  gap: 18px;
+}
+
+/* Make the summary cards more comfortable */
+.performance-results-page
+.performance-results-column:first-child
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* Reduce unnecessary height inside each metric card */
+.performance-results-page
+.performance-results-column:first-child
+.summary-grid > div {
+  padding: 14px 16px;
+}
+
+/* Adjust text spacing */
+.performance-results-page
+.performance-results-column:first-child
+.summary-grid > div > span {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.performance-results-page
+.performance-results-column:first-child
+.summary-grid > div > strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+/* Improve progress bar spacing */
+.performance-results-page
+.performance-results-column:first-child
+.performance-progress-track {
+  margin: 10px 0;
+}
+
+/* Reduce paragraph spacing inside metric cards */
+.performance-results-page
+.performance-results-column:first-child
+.summary-grid > div > p {
+  margin: 5px 0;
+  line-height: 1.5;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1050px) {
+  .performance-results-page .performance-results-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   SPRINT 3 - COLOR-CODED ERROR TYPES
+   Reusable for future Annotated Sheet Music
+   ========================================================= */
+
+/* Base styling for every error type */
+.performance-results-page .performance-error-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* TIMING - Yellow */
+.performance-results-page .error-type-timing {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+/* DURATION - Orange */
+.performance-results-page .error-type-duration {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.45);
+}
+
+/* MISSING NOTES - Red */
+.performance-results-page .error-type-missing {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}
+
+/* INCORRECT PITCH - Purple */
+.performance-results-page .error-type-incorrect,
+.performance-results-page .error-type-incorrect-pitch {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.12);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+}
+
+/* ADDITIONAL NOTES - Blue */
+.performance-results-page .error-type-additional {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+
+/* =========================================================
+   SPRINT 3 - PERFORMANCE ERROR COLOR LEGEND
+   ========================================================= */
+
+/* Container for the legend entries */
+.performance-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+/* Each legend entry */
+.performance-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+/* Colored square next to each label */
+.performance-legend-item .legend-color {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Timing - Yellow */
+.performance-legend-item .legend-timing {
+  background: #facc15;
+}
+
+/* Duration - Orange */
+.performance-legend-item .legend-duration {
+  background: #fb923c;
+}
+
+/* Missing Note - Red */
+.performance-legend-item .legend-missing {
+  background: #f87171;
+}
+
+/* Incorrect Pitch - Purple */
+.performance-legend-item .legend-incorrect {
+  background: #c084fc;
+}
+
+/* Additional Note - Blue */
+.performance-legend-item .legend-additional {
+  background: #38bdf8;
+}
+
+
+/* =========================================================
+   SPRINT 3 - LARGER PERFORMANCE ERROR LEGEND
+   ========================================================= */
+
+/* Make the Legend heading larger */
+.performance-results-page .performance-legend h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+/* Increase spacing between legend entries */
+.performance-results-page .performance-legend-items {
+  gap: 20px;
+  margin-top: 20px;
+}
+
+/* Make the legend labels larger */
+.performance-results-page .performance-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Make the colored squares larger */
+.performance-results-page .performance-legend-item .legend-color {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 5px;
+}
+
+/* Add breathing room inside the legend */
+.performance-results-page .performance-legend {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+/* Make the Legend heading larger */
+.performance-results-page
+.performance-options-column
+.performance-legend h3 {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  line-height: 1.3;
+  margin-bottom: 24px;
+}
+
+/* =========================================================
+   MATCH DISPLAY OPTIONS HEADING WITH LEGEND
+   ========================================================= */
+
+.performance-results-page
+.performance-options-column > h2 {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  line-height: 1.3;
+  margin-bottom: 24px;
+}
+
+/* =========================================================
+   CENTER DISPLAY OPTIONS AND LEGEND HEADINGS
+   ========================================================= */
+
+/* Center Display Options */
+.performance-results-page
+.performance-options-column > h2 {
+  text-align: center !important;
+}
+
+/* Center Legend */
+.performance-results-page
+.performance-options-column
+.performance-legend h3 {
+  text-align: center !important;
+}
+
+
+/* =========================================================
+   SPRINT 3 - REDESIGNED ERROR LOCATIONS
+   ========================================================= */
+
+/* List of measure cards */
+.performance-results-page .error-locations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+/* Individual measure card */
+.performance-results-page .error-location-measure-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+}
+
+/* Measure heading and practice badge */
+.performance-results-page .error-location-measure-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.performance-results-page .error-location-measure-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+/* Table container */
+.performance-results-page .error-location-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 10px;
+}
+
+/* Main error locations table */
+.performance-results-page .error-location-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Table header */
+.performance-results-page .error-location-table thead th {
+  padding: 18px 20px;
+  background: #252a34;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Table body */
+.performance-results-page .error-location-table tbody td {
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  font-size: 0.95rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Alternating rows */
+.performance-results-page .error-location-table tbody tr:nth-child(odd) {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.performance-results-page .error-location-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* Row hover effect */
+.performance-results-page .error-location-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.07);
+}
+
+/* Remove border from final row */
+.performance-results-page .error-location-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Beat number */
+.performance-results-page .error-location-beat {
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+/* Expected and played notes */
+.performance-results-page .error-location-note {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #f8fafc;
+}
+
+/* Missing played note */
+.performance-results-page .error-location-missing-note {
+  color: #f87171;
+  font-weight: 800;
+}
+
+/* =========================================================
+   COLOR-CODED ERROR LABELS
+   ========================================================= */
+
+/* Arrange multiple error labels horizontally */
+.performance-results-page .error-location-error-tags {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Compact labels specifically for Error Locations */
+.performance-results-page .error-location-error-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Timing - Yellow */
+.performance-results-page .error-location-error-tag.error-type-timing {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+/* Duration - Orange */
+.performance-results-page .error-location-error-tag.error-type-duration {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.45);
+}
+
+/* Missing Note - Red */
+.performance-results-page .error-location-error-tag.error-type-missing {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}
+
+/* Incorrect Pitch - Purple */
+.performance-results-page .error-location-error-tag.error-type-incorrect,
+.performance-results-page .error-location-error-tag.error-type-incorrect-pitch {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.12);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+}
+
+/* Additional Note - Blue */
+.performance-results-page .error-location-error-tag.error-type-additional {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+/* Unavailable error information */
+.performance-results-page .error-location-no-errors {
+  color: #94a3b8;
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .performance-results-page .error-location-measure-card {
+    padding: 16px;
+  }
+
+  .performance-results-page .error-location-measure-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .performance-results-page .error-location-table {
+    min-width: 600px;
+  }
+
+  .performance-results-page .error-location-table thead th,
+  .performance-results-page .error-location-table tbody td {
+    padding: 14px 12px;
+  }
+}
+
+
+/* =========================================================
+   SPRINT 3 - REDESIGNED SESSION OVERVIEW
+   ========================================================= */
+
+/* Main page heading */
+.performance-results-page .performance-results-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.performance-results-page .performance-results-header h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.performance-results-page .performance-results-header .success-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #4ade80;
+  margin-top: 0;
+}
+
+/* Session overview container */
+.performance-results-page .performance-session-overview {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 24px;
+  margin-bottom: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+/* Heading and status badge */
+.performance-results-page .performance-session-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.performance-results-page .performance-session-heading h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+/* Analysis Complete badge */
+.performance-results-page .performance-analysis-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Audio File and Session ID - two columns */
+.performance-results-page .performance-session-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Recording information cards */
+.performance-results-page .performance-session-info-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 22px 18px;
+  text-align: center;
+  background: #14171e;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+}
+
+.performance-results-page .performance-session-info-card > span {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.performance-results-page .performance-session-info-card > strong {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* Three evenly spaced statistics */
+.performance-results-page .performance-session-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Statistic cards */
+.performance-results-page .performance-session-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 22px 18px;
+  text-align: center;
+  background: #14171e;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+}
+
+/* Statistic icons */
+.performance-results-page .performance-session-stat-icon {
+  display: block;
+  color: #93c5fd;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+/* Statistic labels */
+.performance-results-page .performance-session-stat-card > span:not(.performance-session-stat-icon) {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+/* Statistic values */
+.performance-results-page .performance-session-stat-card > strong {
+  color: #f8fafc;
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+/* =========================================================
+   RESPONSIVE SESSION OVERVIEW
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .performance-results-page .performance-session-overview {
+    padding: 16px;
+  }
+
+  .performance-results-page .performance-session-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-results-page .performance-session-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-results-page .performance-session-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .performance-results-page .performance-results-header h1 {
+    font-size: 1.8rem;
+  }
+}
+
+/* =========================================================
+   SPRINT 3 - PERFORMANCE SECTION HEADING IMPROVEMENTS
+   ========================================================= */
+
+/* Main title: Performance Errors & Problem Areas */
+.performance-results-page
+.performance-errors-section > h2 {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  line-height: 1.3;
+  margin-bottom: 18px;
+}
+
+/* Center description beneath main title */
+.performance-results-page
+.performance-errors-section > .subtitle {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* Detected Error Counts */
+.performance-results-page
+.performance-errors-heading {
+  font-size: 1.4rem !important;
+  font-weight: 700 !important;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  color: #f8fafc;
+}
+
+/* Problem Areas */
+.performance-results-page
+.performance-problem-overview > h3 {
+  font-size: 1.4rem !important;
+  font-weight: 700 !important;
+  margin-top: 30px;
+  margin-bottom: 12px;
+  color: #f8fafc;
+}
+
+/* Error Locations main heading */
+.performance-results-page
+.performance-error-locations-section > h2 {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  line-height: 1.3;
+  margin-bottom: 18px;
+}
+
+/* Center Error Locations description */
+.performance-results-page
+.performance-error-locations-section > .subtitle {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+/* Measure headings inside Problem Areas */
+.performance-results-page
+.performance-problem-header h3 {
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+  color: #f8fafc;
+}
+
+/* Measure headings inside Error Locations */
+.performance-results-page
+.error-location-measure-header h3 {
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+  color: #f8fafc;
+}
+
+/* Error Types subheading */
+.performance-results-page
+.performance-problem-card > h4 {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  margin-top: 22px;
+  margin-bottom: 14px;
+  color: #e2e8f0;
+}
+
+
+/* =========================================================
+   SPRINT 3 - REDESIGNED DETECTED PITCHES
+   ========================================================= */
+
+/* Main section heading */
+.performance-results-page
+.performance-detected-pitches-section > h2 {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  margin-bottom: 16px;
+  color: #f8fafc;
+}
+
+/* Description below heading */
+.performance-results-page
+.performance-detected-pitches-section > .subtitle {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+/* Pitch sequence container */
+.performance-results-page .performance-pitch-container {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+}
+
+/* Pitch sequence heading and count */
+.performance-results-page .performance-pitch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.performance-results-page .performance-pitch-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+/* Detected pitch count */
+.performance-results-page .performance-pitch-count {
+  padding: 8px 14px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 999px;
+  color: #93c5fd;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Pitch badges layout */
+.performance-results-page .performance-pitch-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Individual detected pitch */
+.performance-results-page .performance-pitch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  padding: 12px 16px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 9px;
+  color: #93c5fd;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Responsive spacing */
+@media (max-width: 768px) {
+  .performance-results-page .performance-pitch-container {
+    padding: 16px;
+  }
+
+  .performance-results-page .performance-pitch-list {
+    gap: 8px;
+  }
+
+  .performance-results-page .performance-pitch-badge {
+    min-width: 48px;
+    padding: 10px 12px;
+  }
+}
+
+
+
+/* =========================================================
+   SCORE PROCESSING - REDESIGNED PAGE
+   ========================================================= */
+
+/* Wider page layout */
+.score-processing-page {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 24px;
+}
+
+.score-processing-page .processing-card {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 32px;
+}
+
+/* =========================================================
+   SCORE RESULTS HEADING
+   ========================================================= */
+
+.score-processing-page .score-results-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.score-processing-page .score-results-header h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #f8fafc;
+}
+
+.score-processing-page .score-results-header .success-text {
+  margin-top: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #4ade80;
+}
+
+/* =========================================================
+   SESSION OVERVIEW
+   ========================================================= */
+
+.score-processing-page .score-session-overview {
+  width: 100%;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+}
+
+.score-processing-page .score-session-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.score-processing-page .score-session-heading h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+/* Uploaded status badge */
+.score-processing-page .score-upload-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* File and session ID cards */
+.score-processing-page .score-session-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.score-processing-page .score-session-info-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 22px 18px;
+  text-align: center;
+  background: #14171e;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+}
+
+.score-processing-page .score-session-info-card > span {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.score-processing-page .score-session-info-card > strong {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* Three statistic cards */
+.score-processing-page .score-session-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.score-processing-page .score-session-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 22px 18px;
+  text-align: center;
+  background: #14171e;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+}
+
+.score-processing-page .score-session-stat-icon {
+  display: block;
+  color: #93c5fd;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.score-processing-page .score-session-stat-card > span:not(.score-session-stat-icon) {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.score-processing-page .score-session-stat-card > strong {
+  color: #f8fafc;
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+.score-processing-page .score-session-stat-card > strong.score-tempo-value {
+  font-size: 1.2rem;
+}
+
+/* =========================================================
+   EXTRACTED NOTES
+   ========================================================= */
+
+.score-processing-page .score-extracted-notes-section > h2,
+.score-processing-page .score-measure-selection-section > h2 {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  margin-bottom: 16px;
+  color: #f8fafc;
+}
+
+.score-processing-page .score-extracted-notes-section > .subtitle,
+.score-processing-page .score-measure-selection-section > .subtitle {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.score-processing-page .score-extracted-notes-container {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+}
+
+.score-processing-page .score-extracted-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.score-processing-page .score-extracted-notes-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.score-processing-page .score-extracted-notes-count {
+  padding: 8px 14px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 999px;
+  color: #93c5fd;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Scrollable extracted notes table */
+.score-processing-page .score-notes-table-container {
+  max-height: 360px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border-radius: 10px;
+}
+
+.score-processing-page .score-notes-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.score-processing-page .score-notes-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 16px;
+  background: #252a34;
+  color: #e2e8f0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.score-processing-page .score-notes-table tbody td {
+  padding: 13px 16px;
+  text-align: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.score-processing-page .score-notes-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.07);
+}
+
+.score-processing-page .score-note-pitch {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.score-processing-page .score-notes-scroll-hint {
+  margin-top: 14px;
+  margin-bottom: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* =========================================================
+   SELECT MEASURES TO PRACTICE
+   ========================================================= */
+
+.score-processing-page .score-measure-selection-container {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+}
+
+.score-processing-page .score-measure-availability {
+  width: fit-content;
+  margin: 0 auto 24px;
+  padding: 8px 14px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 999px;
+  color: #93c5fd;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.score-processing-page .score-measure-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.score-processing-page .score-measure-input-grid > div {
+  min-width: 0;
+  padding: 20px;
+  background: #14171e;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+}
+
+.score-processing-page .score-measure-input-grid label {
+  display: block;
+  margin-bottom: 12px;
+  color: #e2e8f0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.score-processing-page .score-measure-input-grid .measure-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  font-size: 1rem;
+}
+
+/* Selected measure range preview */
+.score-processing-page .score-selected-range {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  background: #14171e;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+}
+
+.score-processing-page .score-selected-range > span {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.score-processing-page .score-selected-range > strong {
+  color: #93c5fd;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.score-processing-page .score-measure-message {
+  margin-top: 16px;
+}
+
+.score-processing-page .score-measure-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.score-processing-page .score-measure-actions .upload-button {
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .score-processing-page {
+    padding: 12px;
+  }
+
+  .score-processing-page .processing-card {
+    padding: 20px 16px;
+  }
+
+  .score-processing-page .score-session-info-grid,
+  .score-processing-page .score-session-stats-grid,
+  .score-processing-page .score-measure-input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-processing-page .score-session-overview,
+  .score-processing-page .score-extracted-notes-container,
+  .score-processing-page .score-measure-selection-container {
+    padding: 16px;
+  }
+
+  .score-processing-page .score-results-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .score-processing-page .score-notes-table {
+    min-width: 480px;
+  }
+
+  .score-processing-page .score-measure-actions .upload-button {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   SCORE PROCESSING - IMPROVED EXTRACTED NOTES TABLE
+   ========================================================= */
+
+/* Table container */
+.score-processing-page .score-notes-table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: #14171e;
+}
+
+/* Table */
+.score-processing-page .score-notes-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Sticky table header */
+.score-processing-page .score-notes-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #263449;
+  color: #dbeafe;
+  padding: 18px 20px;
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: center;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+/* Table body cells */
+.score-processing-page .score-notes-table tbody td {
+  padding: 15px 20px;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+/* Alternating row backgrounds */
+.score-processing-page .score-notes-table tbody tr:nth-child(odd) {
+  background: #151922;
+}
+
+.score-processing-page .score-notes-table tbody tr:nth-child(even) {
+  background: #1b202b;
+}
+
+/* Highlight row on hover */
+.score-processing-page .score-notes-table tbody tr:hover {
+  background: #24334b;
+  transition: background 0.15s ease;
+}
+
+/* Note numbers */
+.score-processing-page .score-notes-table tbody td:first-child {
+  color: #f8fafc;
+  font-weight: 800;
+}
+
+/* Pitch badge container */
+.score-processing-page .score-note-pitch-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Individual pitch badges */
+.score-processing-page .score-note-pitch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  color: #93c5fd;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* Remove border from last row */
+.score-processing-page .score-notes-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* =========================================================
+   CUSTOM SCROLLBAR
+   ========================================================= */
+
+.score-processing-page .score-notes-table-container {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 #14171e;
+}
+
+/* Chrome, Edge, Safari */
+.score-processing-page .score-notes-table-container::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.score-processing-page .score-notes-table-container::-webkit-scrollbar-track {
+  background: #14171e;
+  border-radius: 10px;
+}
+
+.score-processing-page .score-notes-table-container::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 10px;
+  border: 2px solid #14171e;
+}
+
+.score-processing-page .score-notes-table-container::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* =========================================================
+   RESPONSIVE TABLE
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .score-processing-page .score-notes-table {
+    min-width: 480px;
+  }
+
+  .score-processing-page .score-notes-table thead th,
+  .score-processing-page .score-notes-table tbody td {
+    padding: 12px;
+  }
+
+  .score-processing-page .score-note-pitch-badge {
+    padding: 6px 10px;
+  }
+}

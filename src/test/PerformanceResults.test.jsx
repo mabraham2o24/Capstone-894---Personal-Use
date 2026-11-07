@@ -23,26 +23,13 @@ const mockAudioResult = {
   status: 'processed',
   detected_pitches: ['C4', 'D4', 'E4'],
   note_events: [
-    {
-      pitch: 'C4',
-      duration: 0.5,
-      onset: 0,
-    },
-    {
-      pitch: 'D4',
-      duration: 0.6,
-      onset: 0.5,
-    },
-    {
-      pitch: 'E4',
-      duration: 0.7,
-      onset: 1.1,
-    },
+    { pitch: 'C4', duration: 0.5, onset: 0 },
+    { pitch: 'D4', duration: 0.6, onset: 0.5 },
+    { pitch: 'E4', duration: 0.7, onset: 1.1 },
   ],
 }
 
 // Sample Sprint 2 note-level feedback.
-// These values represent the structure returned by FastAPI.
 const mockNoteFeedback = [
   {
     measure: 3,
@@ -112,7 +99,85 @@ const mockNoteFeedback = [
   },
 ]
 
-// Displays the information passed back to Performance Upload.
+// Sample Sprint 3 performance summary.
+// Percentages are already on the 0-100 scale.
+// Problem-area error rates are on the 0-1 scale.
+const mockPerformanceSummary = {
+  metrics: {
+    pitch_accuracy: {
+      accuracy_percent: 93.75,
+      correct_notes: 15,
+      total_expected_notes: 16,
+    },
+    rhythmic_accuracy: {
+      accuracy_percent: 92.19,
+      onset_accuracy_percent: 94.5,
+      duration_accuracy_percent: 89.88,
+    },
+    tempo_consistency: {
+      consistency_percent: 90.17,
+      variation_percent: 9.83,
+    },
+    note_sequence_accuracy: {
+      accuracy_percent: 87.5,
+      correct_notes: 14,
+      total_expected_notes: 16,
+    },
+  },
+  error_counts: {
+    incorrect_pitch: 1,
+    missing_notes: 1,
+    additional_notes: 1,
+  },
+  problem_areas: [
+    {
+      measure: 4,
+      total_notes: 4,
+      error_notes: 2,
+      error_rate: 0.5,
+      requires_practice: true,
+      error_types: {
+        timing: 2,
+        duration: 1,
+        missing: 1,
+      },
+      error_locations: [
+        {
+          beat: 2,
+          expected_note: 'A4',
+          played_note: null,
+          errors: ['missing'],
+        },
+        {
+          beat: 4,
+          expected_note: 'C#5',
+          played_note: 'C5',
+          errors: ['timing', 'duration'],
+        },
+      ],
+    },
+    {
+      measure: 5,
+      total_notes: 4,
+      error_notes: 1,
+      error_rate: 0.25,
+      requires_practice: false,
+      error_types: {
+        incorrect_pitch: 1,
+      },
+      error_locations: [
+        {
+          beat: 3,
+          expected_note: 'D5',
+          played_note: 'C5',
+          errors: ['incorrect_pitch'],
+        },
+      ],
+    },
+  ],
+}
+
+// Mock page for testing navigation back to Performance Upload.
 function MockPerformanceUpload() {
   const location = useLocation()
 
@@ -127,7 +192,7 @@ function MockPerformanceUpload() {
   )
 }
 
-// Renders Performance Results with optional session data.
+// Render Performance Results with optional session data.
 function renderPerformanceResults(state = null) {
   return render(
     <MemoryRouter
@@ -143,12 +208,10 @@ function renderPerformanceResults(state = null) {
           path="/performance-results"
           element={<PerformanceResults />}
         />
-
         <Route
           path="/performance-upload"
           element={<MockPerformanceUpload />}
         />
-
         <Route
           path="/dashboard"
           element={<div>Dashboard Test Page</div>}
@@ -158,7 +221,7 @@ function renderPerformanceResults(state = null) {
   )
 }
 
-// Returns the standard valid session information.
+// Standard valid session information.
 function createValidSession(audioResult = mockAudioResult) {
   return {
     sessionId: 123,
@@ -169,7 +232,7 @@ function createValidSession(audioResult = mockAudioResult) {
   }
 }
 
-// Returns an audio result containing Sprint 2 feedback.
+// Session with Sprint 2 note-level feedback.
 function createFeedbackSession() {
   return createValidSession({
     ...mockAudioResult,
@@ -178,20 +241,72 @@ function createFeedbackSession() {
   })
 }
 
-// Gets the feedback table separately from the detected-notes table.
+// Session with all Sprint 3 results.
+function createSprint3Session() {
+  return createValidSession({
+    ...mockAudioResult,
+    status: 'audio_analyzed',
+    note_feedback: mockNoteFeedback,
+    performance_summary: mockPerformanceSummary,
+  })
+}
+
+// Get the Performance Feedback table.
 function getFeedbackTable() {
-  const tables = screen.getAllByRole('table')
-  return tables[0]
+  const heading = screen.getByRole('heading', {
+    name: 'Performance Feedback',
+  })
+
+  const column = heading.closest('.performance-results-column')
+
+  return within(column).getByRole('table')
+}
+
+// Get the Performance Summary metric cards.
+function getMetricCard(label) {
+  const summary = document.querySelector(
+    '.performance-results-layout .summary-grid'
+  )
+
+  const labelElement = within(summary).getByText(label)
+
+  return labelElement.parentElement
+}
+
+// Get a problem-area overview card for a specific measure.
+function getProblemCard(measure) {
+  const cards = document.querySelectorAll(
+    '.performance-problem-card'
+  )
+
+  return Array.from(cards).find((card) =>
+    within(card).queryByRole('heading', {
+      name: `Measure ${measure}`,
+    })
+  )
+}
+
+// Get the error-location card for a specific measure.
+function getErrorLocationCard(measure) {
+  const cards = document.querySelectorAll(
+    '.error-location-measure-card'
+  )
+
+  return Array.from(cards).find((card) =>
+    within(card).queryByRole('heading', {
+      name: `Measure ${measure}`,
+    })
+  )
 }
 
 describe('Performance Results Page Tests', () => {
 
-  // Test 1: Verify the audio-processing summary.
+  // TEST 1: Verify the redesigned audio-processing summary.
   test('displays audio-processing summary', () => {
     renderPerformanceResults(createValidSession())
 
     expect(
-      screen.getByText('Audio successfully processed.')
+      screen.getByText(/Audio successfully processed/i)
     ).toBeInTheDocument()
 
     expect(
@@ -199,57 +314,77 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
 
     expect(
-      screen.getByText('processed')
+      screen.getByText('Analysis Complete')
     ).toBeInTheDocument()
 
-    const summary = document.querySelector('.summary-grid')
+    const overview = document.querySelector(
+      '.performance-session-overview'
+    )
 
     expect(
-      within(summary).getByText('123')
+      within(overview).getByText('123')
     ).toBeInTheDocument()
 
-    // Three detected pitches, three note events,
-    // and starting measure 3.
     expect(
-      within(summary).getAllByText('3')
-    ).toHaveLength(3)
+      within(overview).getByText('3–6')
+    ).toBeInTheDocument()
+
+    expect(
+      within(overview).getByText('Detected Pitches')
+    ).toBeInTheDocument()
+
+    expect(
+      within(overview).getByText('Note Events')
+    ).toBeInTheDocument()
   })
 
-  // Test 2: Verify detected pitches are displayed.
+  // TEST 2: Verify individual detected pitch badges.
   test('displays detected pitches correctly', () => {
     renderPerformanceResults(createValidSession())
 
+    const pitchList = document.querySelector(
+      '.performance-pitch-list'
+    )
+
+    const badges = pitchList.querySelectorAll(
+      '.performance-pitch-badge'
+    )
+
+    expect(badges).toHaveLength(3)
+
     expect(
-      screen.getByText('C4, D4, E4')
+      Array.from(badges).map((badge) => badge.textContent)
+    ).toEqual(['C4', 'D4', 'E4'])
+
+    expect(
+      screen.getByText('3 Detected')
     ).toBeInTheDocument()
   })
 
-  // Test 3: Verify detected note events and timing.
-  test('displays note events with duration and onset', () => {
+  // TEST 3: Verify note-event counts.
+  test('displays detected note-event count', () => {
     renderPerformanceResults(createValidSession())
 
-    const table = screen.getByRole('table')
-    const rows = within(table).getAllByRole('row')
+    const overview = document.querySelector(
+      '.performance-session-overview'
+    )
 
-    expect(rows).toHaveLength(4)
+    const cards = overview.querySelectorAll(
+      '.performance-session-stat-card'
+    )
 
-    expect(
-      within(rows[1]).getAllByRole('cell')
-        .map((cell) => cell.textContent)
-    ).toEqual(['1', 'C4', '0.5 sec', '0 sec'])
-
-    expect(
-      within(rows[2]).getAllByRole('cell')
-        .map((cell) => cell.textContent)
-    ).toEqual(['2', 'D4', '0.6 sec', '0.5 sec'])
+    expect(cards).toHaveLength(3)
 
     expect(
-      within(rows[3]).getAllByRole('cell')
-        .map((cell) => cell.textContent)
-    ).toEqual(['3', 'E4', '0.7 sec', '1.1 sec'])
+      within(cards[1]).getByText('3')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[2]).getByText('3')
+    ).toBeInTheDocument()
   })
 
-  // Test 4: Verify an empty note-event list.
+  // TEST 4: Verify empty detected pitches and note events.
   test('handles a performance with no detected notes', () => {
     const emptyAudioResult = {
       ...mockAudioResult,
@@ -261,18 +396,28 @@ describe('Performance Results Page Tests', () => {
       createValidSession(emptyAudioResult)
     )
 
-    const summary = document.querySelector('.summary-grid')
+    expect(
+      screen.getByText('No pitches detected.')
+    ).toBeInTheDocument()
 
     expect(
-      within(summary).getAllByText('0')
-    ).toHaveLength(2)
+      screen.getByText('0 Detected')
+    ).toBeInTheDocument()
+
+    const cards = document.querySelectorAll(
+      '.performance-session-stat-card'
+    )
 
     expect(
-      within(screen.getByRole('table')).getAllByRole('row')
-    ).toHaveLength(1)
+      within(cards[1]).getByText('0')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[2]).getByText('0')
+    ).toBeInTheDocument()
   })
 
-  // Test 5: Verify missing performance data is handled.
+  // TEST 5: Verify missing performance data.
   test('displays a message when no performance is available', () => {
     renderPerformanceResults()
 
@@ -289,7 +434,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 6: Verify navigation to Performance Upload.
+  // TEST 6: Verify navigation to Performance Upload.
   test('returns to Performance Upload with session and measures', async () => {
     const user = userEvent.setup()
 
@@ -322,7 +467,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 7: Verify navigation to Dashboard.
+  // TEST 7: Verify navigation to Dashboard.
   test('returns to Dashboard', async () => {
     const user = userEvent.setup()
 
@@ -330,7 +475,7 @@ describe('Performance Results Page Tests', () => {
 
     await user.click(
       screen.getByRole('button', {
-        name: 'Back to Dashboard',
+        name: /Back to Dashboard/i,
       })
     )
 
@@ -339,8 +484,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 8: Verify Dashboard navigation when
-  // performance information is missing.
+  // TEST 8: Verify Dashboard navigation when data is missing.
   test('returns to Dashboard when data is missing', async () => {
     const user = userEvent.setup()
 
@@ -357,26 +501,24 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 9: Verify the selected measure range is displayed.
+  // TEST 9: Verify selected measure range.
   test('displays selected starting and ending measures', () => {
     renderPerformanceResults(createValidSession())
 
-    const summary = document.querySelector('.summary-grid')
+    const overview = document.querySelector(
+      '.performance-session-overview'
+    )
 
     expect(
-      within(summary).getByText('Starting Measure')
+      within(overview).getByText('Selected Measures')
     ).toBeInTheDocument()
 
     expect(
-      within(summary).getByText('Ending Measure')
-    ).toBeInTheDocument()
-
-    expect(
-      within(summary).getByText('6')
+      within(overview).getByText('3–6')
     ).toBeInTheDocument()
   })
 
-  // Test 10: Verify score-to-performance alignment feedback.
+  // TEST 10: Verify score-to-performance alignment.
   test('displays expected and played notes with measure and beat', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -385,7 +527,8 @@ describe('Performance Results Page Tests', () => {
     expect(rows).toHaveLength(7)
 
     expect(
-      within(rows[1]).getAllByRole('cell')
+      within(rows[1])
+        .getAllByRole('cell')
         .map((cell) => cell.textContent)
     ).toEqual([
       '3',
@@ -400,14 +543,15 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // Test 11: Verify incorrect pitch feedback.
+  // TEST 11: Verify incorrect pitch feedback.
   test('displays incorrect pitch feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
     const rows = within(getFeedbackTable()).getAllByRole('row')
 
     expect(
-      within(rows[2]).getAllByRole('cell')
+      within(rows[2])
+        .getAllByRole('cell')
         .map((cell) => cell.textContent)
     ).toEqual([
       '3',
@@ -422,14 +566,15 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // Test 12: Verify missing-note feedback.
+  // TEST 12: Verify missing-note feedback.
   test('displays missing note feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
     const rows = within(getFeedbackTable()).getAllByRole('row')
 
     expect(
-      within(rows[3]).getAllByRole('cell')
+      within(rows[3])
+        .getAllByRole('cell')
         .map((cell) => cell.textContent)
     ).toEqual([
       '3',
@@ -444,14 +589,15 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // Test 13: Verify additional-note feedback.
+  // TEST 13: Verify additional-note feedback.
   test('displays additional note feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
     const rows = within(getFeedbackTable()).getAllByRole('row')
 
     expect(
-      within(rows[4]).getAllByRole('cell')
+      within(rows[4])
+        .getAllByRole('cell')
         .map((cell) => cell.textContent)
     ).toEqual([
       '3',
@@ -466,7 +612,7 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // Test 14: Verify early and late timing feedback.
+  // TEST 14: Verify early and late timing feedback.
   test('displays early and late timing feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -481,7 +627,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 15: Verify note-duration classifications.
+  // TEST 15: Verify note-duration classifications.
   test('displays too short and too long duration feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -494,6 +640,358 @@ describe('Performance Results Page Tests', () => {
     expect(
       within(rows[6]).getByText('too long')
     ).toBeInTheDocument()
+  })
+
+  // TEST 16 - US-14: Pitch accuracy.
+  test('displays pitch accuracy percentage and note counts', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getMetricCard('Pitch Accuracy')
+
+    expect(
+      within(card).getByText('93.75%')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('15 of 16 notes correct')
+    ).toBeInTheDocument()
+
+    expect(
+      card.querySelector('.pitch-progress')
+    ).toHaveStyle({ width: '93.75%' })
+  })
+
+  // TEST 17 - US-15: Rhythmic accuracy.
+  test('displays rhythm, onset, and duration accuracy', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getMetricCard('Rhythmic Accuracy')
+
+    expect(
+      within(card).getByText('92.19%')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('Onset Accuracy: 94.50%')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('Duration Accuracy: 89.88%')
+    ).toBeInTheDocument()
+
+    expect(
+      card.querySelector('.rhythm-progress')
+    ).toHaveStyle({ width: '92.19%' })
+  })
+
+  // TEST 18 - US-16: Tempo consistency.
+  test('displays tempo consistency and variation', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getMetricCard('Tempo Consistency')
+
+    expect(
+      within(card).getByText('90.17%')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('Tempo Variation: 9.83%')
+    ).toBeInTheDocument()
+
+    expect(
+      card.querySelector('.tempo-progress')
+    ).toHaveStyle({ width: '90.17%' })
+  })
+
+  // TEST 19 - US-18: Note sequence accuracy.
+  test('displays note sequence accuracy', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getMetricCard('Note Sequence Accuracy')
+
+    expect(
+      within(card).getByText('87.50%')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('14 of 16 notes correct')
+    ).toBeInTheDocument()
+
+    expect(
+      card.querySelector('.sequence-progress')
+    ).toHaveStyle({ width: '87.5%' })
+  })
+
+  // TEST 20 - US-18: Detected error counts.
+  test('displays incorrect, missing, and additional note counts', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const errorGrid = document.querySelector(
+      '.performance-error-count-grid'
+    )
+
+    const cards = errorGrid.children
+
+    expect(cards).toHaveLength(3)
+
+    expect(
+      within(cards[0]).getByText('Incorrect Pitches')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[0]).getByText('1')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[1]).getByText('Missing Notes')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[1]).getByText('1')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[2]).getByText('Additional Notes')
+    ).toBeInTheDocument()
+
+    expect(
+      within(cards[2]).getByText('1')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 21 - US-17: Problem-area measure statistics.
+  test('displays problem-area statistics and error rate', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getProblemCard(4)
+
+    expect(card).toBeDefined()
+
+    expect(
+      within(card).getByText('4', {
+        selector: 'strong',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('2')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('50.00%')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 22 - US-17: Practice recommendations.
+  test('displays practice recommendations for problem areas', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const measure4 = getProblemCard(4)
+    const measure5 = getProblemCard(5)
+
+    expect(
+      within(measure4).getByText('Requires Practice')
+    ).toBeInTheDocument()
+
+    expect(
+      within(measure5).getByText('No Practice Required')
+    ).toBeInTheDocument()
+
+    expect(
+      within(measure4).getByText('Requires Practice')
+    ).toHaveClass('practice-required')
+
+    expect(
+      within(measure5).getByText('No Practice Required')
+    ).toHaveClass('practice-not-required')
+  })
+
+  // TEST 23 - US-17: Error types.
+  test('displays error types and counts for problem measures', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getProblemCard(4)
+
+    expect(
+      within(card).getByText('timing: 2')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('duration: 1')
+    ).toBeInTheDocument()
+
+    expect(
+      within(card).getByText('missing: 1')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 24 - US-17: Error locations.
+  test('displays beats and expected and played notes', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getErrorLocationCard(4)
+    const rows = within(card)
+      .getByRole('table')
+      .querySelectorAll('tbody tr')
+
+    expect(rows).toHaveLength(2)
+
+    expect(
+      within(rows[0])
+        .getAllByRole('cell')
+        .slice(0, 3)
+        .map((cell) => cell.textContent)
+    ).toEqual(['2', 'A4', 'N/A'])
+
+    expect(
+      within(rows[1])
+        .getAllByRole('cell')
+        .slice(0, 3)
+        .map((cell) => cell.textContent)
+    ).toEqual(['4', 'C#5', 'C5'])
+  })
+
+  // TEST 25 - US-17: Missing-note highlighting.
+  test('highlights missing played notes', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const card = getErrorLocationCard(4)
+
+    const missingNote = card.querySelector(
+      '.error-location-missing-note'
+    )
+
+    expect(missingNote).toBeInTheDocument()
+
+    expect(missingNote).toHaveTextContent('N/A')
+  })
+
+  // TEST 26 - US-17: Color-coded error labels.
+  test('assigns correct CSS classes to detected errors', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const measure4 = getErrorLocationCard(4)
+    const measure5 = getErrorLocationCard(5)
+
+    expect(
+      measure4.querySelector('.error-type-missing')
+    ).toBeInTheDocument()
+
+    expect(
+      measure4.querySelector('.error-type-timing')
+    ).toBeInTheDocument()
+
+    expect(
+      measure4.querySelector('.error-type-duration')
+    ).toBeInTheDocument()
+
+    expect(
+      measure5.querySelector('.error-type-incorrect-pitch')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 27: Missing performance summary.
+  test('handles audio results without a performance summary', () => {
+    renderPerformanceResults(createValidSession())
+
+    expect(
+      screen.getByText(
+        'No performance summary was returned for this recording.'
+      )
+    ).toBeInTheDocument()
+
+    const errorGrid = document.querySelector(
+      '.performance-error-count-grid'
+    )
+
+    expect(
+      within(errorGrid).getAllByText('N/A')
+    ).toHaveLength(3)
+  })
+
+  // TEST 28: No problem areas.
+  test('handles an empty problem-area list', () => {
+    const audioResult = {
+      ...mockAudioResult,
+      performance_summary: {
+        ...mockPerformanceSummary,
+        problem_areas: [],
+      },
+    }
+
+    renderPerformanceResults(createValidSession(audioResult))
+
+    expect(
+      screen.getByText(
+        'No problem areas were identified for this performance.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(
+        'No problem-area error locations were identified.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  // TEST 29: Missing note-level feedback.
+  test('handles a performance without note-level feedback', () => {
+    renderPerformanceResults(createValidSession())
+
+    expect(
+      screen.getByText(
+        'No note-level feedback was returned for this performance.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  // TEST 30: Progress bar boundaries.
+  test('clamps progress bar widths between zero and 100 percent', () => {
+    const audioResult = {
+      ...mockAudioResult,
+      performance_summary: {
+        ...mockPerformanceSummary,
+        metrics: {
+          ...mockPerformanceSummary.metrics,
+          pitch_accuracy: {
+            accuracy_percent: 120,
+            correct_notes: 16,
+            total_expected_notes: 16,
+          },
+          tempo_consistency: {
+            consistency_percent: -5,
+            variation_percent: 0,
+          },
+        },
+      },
+    }
+
+    renderPerformanceResults(createValidSession(audioResult))
+
+    expect(
+      document.querySelector('.pitch-progress')
+    ).toHaveStyle({ width: '100%' })
+
+    expect(
+      document.querySelector('.tempo-progress')
+    ).toHaveStyle({ width: '0%' })
+  })
+
+  // TEST 31: Playback controls are disabled.
+  test('keeps future playback controls disabled', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    expect(
+      screen.getByRole('button', {
+        name: /Play Performance/i,
+      })
+    ).toBeDisabled()
+
+    expect(
+      screen.getByRole('button', {
+        name: /Expected Audio/i,
+      })
+    ).toBeDisabled()
   })
 
 })

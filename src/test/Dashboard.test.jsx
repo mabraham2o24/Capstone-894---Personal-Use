@@ -1,44 +1,78 @@
+
 import { describe, test, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import {
+  MemoryRouter,
+  Routes,
+  Route,
+} from 'react-router-dom'
+
 import Dashboard from '../pages/Dashboard.jsx'
+
+// Renders the Dashboard with routing enabled.
+function renderDashboard() {
+  return render(
+    <MemoryRouter initialEntries={['/dashboard']}>
+      <Routes>
+        <Route
+          path="/dashboard"
+          element={<Dashboard />}
+        />
+
+        <Route
+          path="/practice"
+          element={<div>Practice Session Test Page</div>}
+        />
+
+        <Route
+          path="/"
+          element={<div>Login Test Page</div>}
+        />
+      </Routes>
+    </MemoryRouter>
+  )
+}
 
 describe('Dashboard Page Tests', () => {
 
-  // Test 1: Verify that the Dashboard displays correctly.
+  // TEST 1: Verify that the redesigned Dashboard displays correctly.
   test('displays the welcome message', () => {
-    render(
-      <MemoryRouter>
-        <Dashboard />
-      </MemoryRouter>
-    )
+    renderDashboard()
 
     expect(
-      screen.getByRole('heading', { name: 'Welcome' })
+      screen.getByRole('heading', {
+        name: 'Make every practice session count.',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Virtual Music Instructor',
+      })
     ).toBeInTheDocument()
   })
 
-  // Test 2: Verify that clicking Start Practice Session
-  // navigates to the Practice Session page.
+  // TEST 2: Verify that the Start Practice Session button appears.
+  test('displays the Start Practice Session button', () => {
+    renderDashboard()
+
+    expect(
+      screen.getByRole('button', {
+        name: /Start Practice Session/i,
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 3: Verify navigation to Practice Session.
   test('navigates to Practice Session', async () => {
     const user = userEvent.setup()
 
-    render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route
-            path="/practice"
-            element={<div>Practice Session Test Page</div>}
-          />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderDashboard()
 
     await user.click(
       screen.getByRole('button', {
-        name: 'Start Practice Session',
+        name: /Start Practice Session/i,
       })
     )
 
@@ -47,25 +81,17 @@ describe('Dashboard Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 3: Verify that clicking Logout returns to Login.
+  // TEST 4: Verify Logout navigation.
   // This tests navigation only, not real authentication.
   test('navigates to Login after clicking Logout', async () => {
     const user = userEvent.setup()
 
-    render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route
-            path="/"
-            element={<div>Login Test Page</div>}
-          />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderDashboard()
 
     await user.click(
-      screen.getByRole('button', { name: 'Logout' })
+      screen.getByRole('button', {
+        name: /Logout/i,
+      })
     )
 
     expect(

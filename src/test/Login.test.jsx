@@ -2,54 +2,70 @@
 import { describe, test, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import {
+  MemoryRouter,
+  Routes,
+  Route,
+} from 'react-router-dom'
+
 import Login from '../pages/Login.jsx'
+
+// Renders the Login page with routing enabled.
+function renderLogin() {
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route
+          path="/"
+          element={<Login />}
+        />
+
+        <Route
+          path="/dashboard"
+          element={<div>Dashboard Test Page</div>}
+        />
+      </Routes>
+    </MemoryRouter>
+  )
+}
 
 describe('Login Page Tests', () => {
 
-  // Test 1: Verify that the Login page displays correctly.
+  // TEST 1: Verify that the Login page displays correctly.
   test('displays the email and password fields', () => {
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    )
-
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
-  })
-
-  // Test 2: Verify that the Login button is displayed.
-  test('displays the Login button', () => {
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    )
+    renderLogin()
 
     expect(
-      screen.getByRole('button', { name: 'Login' })
+      screen.getByLabelText('Email')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByLabelText('Password')
     ).toBeInTheDocument()
   })
 
-  // Test 3: Verify that clicking Login navigates to the dashboard.
+  // TEST 2: Verify that the Login button is displayed.
+  test('displays the Login button', () => {
+    renderLogin()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Login',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 3: Verify navigation to Dashboard.
+  // This tests frontend navigation, not real authentication.
   test('navigates to dashboard after clicking Login', async () => {
     const user = userEvent.setup()
 
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route
-            path="/dashboard"
-            element={<div>Dashboard Test Page</div>}
-          />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderLogin()
 
     await user.click(
-      screen.getByRole('button', { name: 'Login' })
+      screen.getByRole('button', {
+        name: 'Login',
+      })
     )
 
     expect(
@@ -57,15 +73,11 @@ describe('Login Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // Test 4: Verify that the user can enter an email address.
+  // TEST 4: Verify that the user can enter an email address.
   test('allows the user to enter an email address', async () => {
     const user = userEvent.setup()
 
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    )
+    renderLogin()
 
     const emailInput = screen.getByLabelText('Email')
 
@@ -74,15 +86,11 @@ describe('Login Page Tests', () => {
     expect(emailInput).toHaveValue('student@psu.edu')
   })
 
-  // Test 5: Verify that the user can enter a password.
+  // TEST 5: Verify that the user can enter a password.
   test('allows the user to enter a password', async () => {
     const user = userEvent.setup()
 
-    render(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    )
+    renderLogin()
 
     const passwordInput = screen.getByLabelText('Password')
 
