@@ -106,6 +106,17 @@ function PerformanceResults() {
     return String(value)
   }
 
+  //* A note judged the correct length is shown with its expected length,
+  // since the measured length can round to a neighboring note value
+  // (or include a following rest) while still being within tolerance*
+  const formatPlayedLength = (feedback) => {
+    if (feedback.duration_status === 'correct') {
+      return formatValue(feedback.expected_note_length)
+    }
+
+    return formatValue(feedback.played_note_length)
+  }
+
   //* Backend metric percentages are already on a 0-100 scale*
   const formatPercent = (value) => {
     if (
@@ -552,7 +563,7 @@ function PerformanceResults() {
                         </td>
 
                         <td>
-                          {formatValue(feedback.played_note_length)}
+                          {formatPlayedLength(feedback)}
                         </td>
 
                         <td>

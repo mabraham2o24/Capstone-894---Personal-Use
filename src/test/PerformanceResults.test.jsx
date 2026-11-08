@@ -1209,4 +1209,50 @@ describe('Performance Results Page Tests', () => {
     ).not.toBeInTheDocument()
   })
 
+  // TEST 40: A note judged the correct length shows its expected
+  // length, even when the measured length rounds to another value.
+  test('shows expected length as played length for correct durations', () => {
+    renderPerformanceResults(
+      createValidSession({
+        ...mockAudioResult,
+        status: 'audio_analyzed',
+        note_feedback: [
+          {
+            measure: 2,
+            beat: 2,
+            expected_note: 'F4',
+            played_note: 'F4',
+            pitch_status: 'correct',
+            expected_note_length: 'quarter note',
+            played_note_length: 'half note',
+            duration_status: 'correct',
+            timing_status: 'on_time',
+          },
+          {
+            measure: 4,
+            beat: 2,
+            expected_note: 'A4',
+            played_note: 'A4',
+            pitch_status: 'correct',
+            expected_note_length: 'quarter note',
+            played_note_length: 'eighth note',
+            duration_status: 'too_short',
+            timing_status: 'on_time',
+          },
+        ],
+      })
+    )
+
+    const rows = within(getFeedbackTable()).getAllByRole('row')
+    const playedLengthColumn = 6
+
+    expect(
+      within(rows[1]).getAllByRole('cell')[playedLengthColumn]
+    ).toHaveTextContent('quarter note')
+
+    expect(
+      within(rows[2]).getAllByRole('cell')[playedLengthColumn]
+    ).toHaveTextContent('eighth note')
+  })
+
 })
