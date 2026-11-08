@@ -1,6 +1,22 @@
 import librosa
 import numpy as np
 
+
+# A note is too short below 65% of its written length and too long
+# above 140%. Correctly played notes in the test recordings vary from
+# about 0.7x to 1.3x of their written length.
+DURATION_SHORT_TOLERANCE_RATIO = 0.35
+DURATION_LONG_TOLERANCE_RATIO = 0.40
+
+# Timing tolerance adapts to how evenly the performer plays: it is
+# PERFORMER_SPREAD_FACTOR times the robust spread of their timing
+# differences, never below tolerance_ratio and never above
+# MAX_TIMING_TOLERANCE_RATIO of a beat. Short passages do not give a
+# reliable spread, so they keep tolerance_ratio.
+PERFORMER_SPREAD_FACTOR = 3.0
+MIN_INTERVALS_FOR_PERFORMER_SPREAD = 8
+MAX_TIMING_TOLERANCE_RATIO = 0.40
+
 def classify_note_length(duration_beats):
     """
     Convert a duration in quarter-note units into a
@@ -43,7 +59,9 @@ def analyze_note_duration(
     expected_duration_beats,
     performed_duration_seconds,
     seconds_per_beat,
-    tolerance_ratio=0.20,
+    short_tolerance_ratio=DURATION_SHORT_TOLERANCE_RATIO,
+    long_tolerance_ratio=DURATION_LONG_TOLERANCE_RATIO,
+    judge_too_long=True,
 ):
     """
     Compare an expected musical note duration with the duration
@@ -52,6 +70,14 @@ def analyze_note_duration(
     Expected duration is given in quarter-note units.
     Performed duration is given in seconds and converted to
     quarter-note units using seconds_per_beat.
+
+    Players commonly shorten notes through articulation, so the
+    tolerances are wider than small performance variations.
+
+    judge_too_long should be False when a note's measured length
+    cannot show it was held too long, such as a note followed by a
+    written rest or the final note, whose measurement runs into the
+    silence after it.
 
     Returns musician-friendly note lengths and a duration status:
         - correct
@@ -79,16 +105,16 @@ def analyze_note_duration(
     )
 
     lower_bound = (
-        expected_duration_beats * (1 - tolerance_ratio)
+        expected_duration_beats * (1 - short_tolerance_ratio)
     )
 
     upper_bound = (
-        expected_duration_beats * (1 + tolerance_ratio)
+        expected_duration_beats * (1 + long_tolerance_ratio)
     )
 
     if performed_duration_beats < lower_bound:
         duration_status = "too_short"
-    elif performed_duration_beats > upper_bound:
+    elif judge_too_long and performed_duration_beats > upper_bound:
         duration_status = "too_long"
     else:
         duration_status = "correct"
@@ -121,7 +147,10 @@ def compare_timing(
 
     The performance tempo is estimated from the first and last
     corresponding notes. Timing tolerance is a percentage of the
-    estimated duration of one quarter-note beat.
+    estimated duration of one quarter-note beat, widened for
+    performers whose timing naturally varies more (see
+    PERFORMER_SPREAD_FACTOR). A note displaced on its own is flagged
+    once, not again on the note that follows it.
     """
 
     if len(expected_events) != len(performed_events):
@@ -164,9 +193,8 @@ def compare_timing(
         performed_end - performed_start
     ) / expected_span
 
-    tolerance = seconds_per_beat * tolerance_ratio
-
     results = []
+    differences = []
 
     for index, (expected, performed) in enumerate(
         zip(expected_events, performed_events)
@@ -177,7 +205,6 @@ def compare_timing(
             expected_interval = 0.0
             performed_interval = 0.0
             difference = 0.0
-            timing = "on_time"
 
         else:
             previous_expected = expected_events[index - 1]
@@ -216,12 +243,7 @@ def compare_timing(
 
             difference = performed_interval - expected_interval
 
-            if difference < -tolerance:
-                timing = "early"
-            elif difference > tolerance:
-                timing = "late"
-            else:
-                timing = "on_time"
+        differences.append(difference)
 
         results.append({
             "pitch": expected["pitch"],
@@ -230,8 +252,54 @@ def compare_timing(
             "expected_interval": round(expected_interval, 3),
             "performed_interval": round(performed_interval, 3),
             "timing_difference": round(difference, 3),
-            "timing": timing
         })
+
+    tolerance = seconds_per_beat * tolerance_ratio
+
+    # Widen the tolerance for performers whose timing naturally varies
+    # more, so only notes that stand out from their own playing are
+    # flagged.
+    interval_differences = np.array(differences[1:])
+
+    if len(interval_differences) >= MIN_INTERVALS_FOR_PERFORMER_SPREAD:
+        spread = 1.4826 * np.median(
+            np.abs(
+                interval_differences
+                - np.median(interval_differences)
+            )
+        )
+
+        tolerance = min(
+            max(tolerance, PERFORMER_SPREAD_FACTOR * spread),
+            seconds_per_beat * MAX_TIMING_TOLERANCE_RATIO,
+        )
+
+    for result, difference in zip(results, differences):
+        if difference < -tolerance:
+            result["timing"] = "early"
+        elif difference > tolerance:
+            result["timing"] = "late"
+        else:
+            result["timing"] = "on_time"
+
+    # Each interval is measured from the previous note, so a single
+    # displaced note also shifts the next interval the opposite way.
+    # When the two differences cancel out, only the first note was
+    # off; the following note is back on the beat.
+    for current, following, current_difference, following_difference in zip(
+        results,
+        results[1:],
+        differences,
+        differences[1:],
+    ):
+        if (
+            current["timing"] != "on_time"
+            and following["timing"] != "on_time"
+            and current["timing"] != following["timing"]
+            and abs(current_difference + following_difference)
+            <= tolerance
+        ):
+            following["timing"] = "on_time"
 
     return {
         "seconds_per_beat": round(seconds_per_beat, 3),
