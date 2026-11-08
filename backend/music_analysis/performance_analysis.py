@@ -304,6 +304,30 @@ def analyze_performance(
     timing_performed = []
     duration_analysis = []
 
+    # A note followed by a written rest, or the final note, is measured
+    # into the silence after it, so its length cannot show whether it
+    # was held too long.
+    rest_offsets = [
+        float(rest["offset"])
+        for rest in (rest_details or [])
+    ]
+
+    ends_before_silence = {
+        len(expected_events) - 1,
+        *(
+            index
+            for index, event in enumerate(expected_events)
+            if any(
+                abs(
+                    float(event["offset"])
+                    + float(event["duration"])
+                    - rest_offset
+                ) < 1e-6
+                for rest_offset in rest_offsets
+            )
+        ),
+    }
+
     for item in alignment:
         operation = item["operation"]
 
@@ -333,6 +357,9 @@ def analyze_performance(
                         expected_duration_beats=expected_event["duration"],
                         performed_duration_seconds=performed_duration,
                         seconds_per_beat=seconds_per_beat,
+                        judge_too_long=(
+                            expected_index not in ends_before_silence
+                        ),
                     )
 
                     duration_analysis.append({
@@ -365,6 +392,9 @@ def analyze_performance(
                         expected_duration_beats=expected_event["duration"],
                         performed_duration_seconds=performed_duration,
                         seconds_per_beat=seconds_per_beat,
+                        judge_too_long=(
+                            expected_index not in ends_before_silence
+                        ),
                     )
 
                     duration_analysis.append({
