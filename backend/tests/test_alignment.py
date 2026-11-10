@@ -107,3 +107,54 @@ def test_incorrect_pitch():
             "operation": "match"
         }
     ]
+
+def test_identical_sequences_produce_only_matches():
+    expected = ["C4", "D4", "E4", "F4", "G4"]
+    performed = ["C4", "D4", "E4", "F4", "G4"]
+
+    result = align_notes(expected, performed)
+
+    assert len(result) == 5
+    assert result == [
+        {
+            "expected_note": pitch,
+            "performed_note": pitch,
+            "operation": "match",
+        }
+        for pitch in expected
+    ]
+
+
+def test_multiple_extra_notes_produce_insertions():
+    expected = ["C4", "D4", "E4", "F4", "G4"]
+    performed = ["C4", "A4", "D4", "E4", "B4", "F4", "G4"]
+
+    result = align_notes(expected, performed)
+
+    assert [item["operation"] for item in result] == [
+        "match",
+        "insertion",
+        "match",
+        "match",
+        "insertion",
+        "match",
+        "match",
+    ]
+
+    insertions = [
+        item for item in result
+        if item["operation"] == "insertion"
+    ]
+
+    assert insertions == [
+        {
+            "expected_note": None,
+            "performed_note": "A4",
+            "operation": "insertion",
+        },
+        {
+            "expected_note": None,
+            "performed_note": "B4",
+            "operation": "insertion",
+        },
+    ]
