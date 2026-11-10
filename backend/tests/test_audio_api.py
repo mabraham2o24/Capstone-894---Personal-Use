@@ -159,6 +159,65 @@ def test_upload_audio_uses_selected_measure_range():
         data["problem_areas"]
     )
 
+    # Verify analysis and summary are persisted.
+    stored_response = client.get(f"/sessions/{session_id}")
+    assert stored_response.status_code == 200
+
+    stored_session = stored_response.json()
+
+    assert stored_session["performance_analysis"] == analysis
+    assert stored_session["performance_summary"] == summary
+    assert stored_session["ai_feedback"] is None
+
+    # Simulate AI feedback generated for the first recording.
+    from models import PracticeSession
+    from uuid import UUID
+
+    db = TestingSessionLocal()
+    try:
+        session = db.get(PracticeSession, UUID(session_id))
+        session.ai_feedback = {
+            "overall_assessment": "Previous recording feedback",
+            "recommendations": [],
+            "next_session_goal": "Improve rhythmic accuracy",
+        }
+        db.commit()
+    finally:
+        db.close()
+
+    # Confirm the previous feedback was saved.
+    stored_response = client.get(f"/sessions/{session_id}")
+    assert stored_response.json()["ai_feedback"] is not None
+
+    # Upload another recording to the same session.
+    with audio_path.open("rb") as audio_file:
+        second_response = client.post(
+            f"/sessions/{session_id}/upload-audio",
+            data={
+                "start_measure": "3",
+                "end_measure": "6",
+            },
+            files={
+                "file": (
+                    audio_path.name,
+                    audio_file,
+                    "audio/wav",
+                )
+            },
+        )
+
+    assert second_response.status_code == 200
+
+    # Old AI feedback must be cleared after reanalysis.
+    updated_response = client.get(f"/sessions/{session_id}")
+    assert updated_response.status_code == 200
+
+    updated_session = updated_response.json()
+
+    assert updated_session["ai_feedback"] is None
+    assert updated_session["performance_summary"] is not None
+    assert updated_session["status"] == "audio_analyzed"
+
     # Verify existing note feedback is preserved.
     assert summary["note_feedback"] == data["note_feedback"]
 
@@ -929,3 +988,70 @@ def test_complete_workflow_with_multiple_errors():
     assert summary["problem_areas"] == data["problem_areas"]
     assert summary["note_feedback"] == data["note_feedback"]
     assert summary["problem_area_count"] == len(data["problem_areas"])
+
+
+def test_health_endpoint():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "message": "Virtual Music Instructor backend is running",
+    }
+
+
+def test_create_and_retrieve_session():
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 200
+
+    session_id = create_response.json()["session_id"]
+
+    retrieve_response = client.get(f"/sessions/{session_id}")
+    assert retrieve_response.status_code == 200
+
+    data = retrieve_response.json()
+    assert data["session_id"] == session_id
+    assert data["status"] == "created"
+
+
+def test_upload_score_rejects_unsupported_file_type():
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 200
+
+    session_id = create_response.json()["session_id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/upload-score",
+        files={
+            "file": (
+                "invalid.txt",
+                b"This is not a MusicXML score.",
+                "text/plain",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Unsupported file type" in response.json()["detail"]
+
+
+def test_upload_audio_rejects_unsupported_file_type():
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 200
+
+    session_id = create_response.json()["session_id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/upload-audio",
+        files={
+            "file": (
+                "invalid.mp3",
+                b"This is not a WAV recording.",
+                "audio/mpeg",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Unsupported audio file type" in response.json()["detail"]
+

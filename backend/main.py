@@ -39,6 +39,8 @@ from music_analysis.feedback_formatter import format_note_feedback
 from music_analysis.problem_areas import identify_problem_areas
 from music_analysis.performance_summary import generate_performance_summary
 
+from music_analysis.ai_feedback import generate_ai_feedback
+
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
 # Allow the local React dev server (default Vite/CRA ports) to call this API.
@@ -91,6 +93,9 @@ def get_session(session_id: str, db: Session = Depends(get_db)):
         "audio_filename": session.audio_filename,
         "detected_pitches": session.detected_pitches,
         "note_events": session.note_events,
+        "performance_analysis": session.performance_analysis,
+        "performance_summary": session.performance_summary,
+        "ai_feedback": session.ai_feedback,
         "created_at": session.created_at,
     }
 
@@ -299,6 +304,11 @@ async def upload_audio(
     session.audio_filename = file.filename
     session.detected_pitches = detected_pitches
     session.note_events = note_events
+
+    session.performance_analysis = performance_analysis
+    session.performance_summary = performance_summary
+    session.ai_feedback = None
+
     session.status = "audio_analyzed"
 
     db.commit()
@@ -315,6 +325,43 @@ async def upload_audio(
         "note_feedback": note_feedback,
         "problem_areas": problem_areas,
         "performance_summary": performance_summary,
+        "ai_feedback": session.ai_feedback,
+    }
+
+
+@app.post("/sessions/{session_id}/ai-feedback")
+def create_ai_feedback(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """Generate and store personalized practice feedback."""
+    session = db.get(PracticeSession, session_id)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found",
+        )
+
+    if session.performance_summary is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Analyze a performance before requesting AI feedback.",
+        )
+
+    feedback = generate_ai_feedback(
+        session.performance_summary,
+        score_summary=session.score_summary,
+    )
+
+    session.ai_feedback = feedback.model_dump(mode="json")
+
+    db.commit()
+    db.refresh(session)
+
+    return {
+        "session_id": str(session.id),
+        "ai_feedback": session.ai_feedback,
     }
 
 

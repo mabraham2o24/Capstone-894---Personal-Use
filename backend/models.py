@@ -49,4 +49,9 @@ class PracticeSession(Base):
     detected_pitches = Column(JSON, nullable=True)
     note_events = Column(JSON, nullable=True)
 
+    # Persist analysis results for AI feedback and practice history.
+    performance_analysis = Column(JSON, nullable=True)
+    performance_summary = Column(JSON, nullable=True)
+    ai_feedback = Column(JSON, nullable=True)
+
     status = Column(String, default="created")  # created -> score_uploaded -> ...
