@@ -1,0 +1,390 @@
+{
+  "_about": [
+    "Intended timing and duration errors in each test recording.",
+    "Used by tests/timing_scoreboard.py to count caught errors and false flags.",
+    "timing: notes that should be flagged early/late.",
+    "duration: notes that should be flagged too_short/too_long.",
+    "Every other evaluated note is expected to be on_time / correct.",
+    "ignore: notes whose correct label depends on how the player recovered",
+    "from the intended error. check lists which statuses to skip.",
+    "verified: false means the intended errors are a best guess and need",
+    "confirming by whoever made the recording."
+  ],
+  "scores": {
+    "canon": {
+      "path": "test_music/Canon_in_D/canon-in-d.mxl",
+      "start_measure": 3,
+      "end_measure": 6
+    },
+    "minuet": {
+      "path": "test_music/Minuet_in_F/minuet_in_f.mxl",
+      "start_measure": 1,
+      "end_measure": 4
+    }
+  },
+  "recordings": [
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_correct.wav",
+      "score": "canon",
+      "verified": true,
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_incorrect_pitch.wav",
+      "score": "canon",
+      "verified": true,
+      "other_errors": "C#5 at m4 b4 played as C5 (test_audio_api.py)",
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_late_note.wav",
+      "score": "canon",
+      "verified": true,
+      "timing": [
+        {"measure": 4, "beat": 2.0, "expected": "late"}
+      ],
+      "duration": [],
+      "ignore": [
+        {"measure": 4, "beat": 1.0, "check": ["duration"],
+         "reason": "B4 before the late note may have been held into the gap"}
+      ]
+    },
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_long_note.wav",
+      "score": "canon",
+      "verified": true,
+      "timing": [],
+      "duration": [
+        {"measure": 4, "beat": 2.0, "expected": "too_long"}
+      ],
+      "ignore": [
+        {"measure": 4, "beat": 3.0, "check": ["timing"],
+         "reason": "B4 after the long note is delayed as a consequence"}
+      ]
+    },
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_short_note.wav",
+      "score": "canon",
+      "verified": true,
+      "timing": [],
+      "duration": [
+        {"measure": 4, "beat": 2.0, "expected": "too_short"}
+      ],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_missing_pause2.wav",
+      "score": "canon",
+      "verified": true,
+      "other_errors": "A4 at m4 b2 missing, with a pause (test_timing_analysis.py)",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 4, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 4, "beat": 3.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+    {
+      "file": "test_music/Canon_in_D/performances/canon_measures_3_6_missing_continuous2.wav",
+      "score": "canon",
+      "verified": true,
+      "other_errors": "A4 at m4 b2 missing, no pause (test_timing_analysis.py)",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 4, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 4, "beat": 3.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_correct.wav",
+      "score": "minuet",
+      "verified": true,
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_correct.wav",
+      "score": "minuet",
+      "verified": true,
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_correct.wav",
+      "score": "minuet",
+      "verified": true,
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_wrong_pitch.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "A4 at m1 b2 played as B4",
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_wrong_pitch.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "A4 at m1 b2 played as B4",
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_wrong_pitch.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "A4 at m1 b2 played as B4",
+      "timing": [],
+      "duration": [],
+      "ignore": []
+    },
+
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_extra_note.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "extra D5 between F5 (m3 b1) and C5 (m3 b2)",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 3, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the extra note"},
+        {"measure": 3, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the extra note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_extra_note.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "extra D5 between F5 (m3 b1) and C5 (m3 b2)",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 3, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the extra note"},
+        {"measure": 3, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the extra note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_extra_note.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "extra D5 between F5 (m3 b1) and C5 (m3 b2)",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 3, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the extra note"},
+        {"measure": 3, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the extra note"}
+      ]
+    },
+
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_missing_pause.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "E4 at m2 b1.5 missing, with a pause",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_missing_pause.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "E4 at m2 b1.5 missing, with a pause",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_missing_pause.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "E4 at m2 b1.5 missing, with a pause",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_missing_continuous.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "E4 at m2 b1.5 missing, no pause",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_missing_continuous.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "E4 at m2 b1.5 missing, no pause",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_missing_continuous.wav",
+      "score": "minuet",
+      "verified": true,
+      "other_errors": "E4 at m2 b1.5 missing, no pause",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"}
+      ]
+    },
+
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_wrong_duration.wav",
+      "score": "minuet",
+      "verified": true,
+      "source": "recorder's notes: M1 B1 quarter note played as a half note",
+      "timing": [],
+      "duration": [
+        {"measure": 1, "beat": 1.0, "expected": "too_long"}
+      ],
+      "ignore": [
+        {"measure": 1, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the long note is delayed as a consequence"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_wrong_duration.wav",
+      "score": "minuet",
+      "verified": true,
+      "source": "recorder's notes: M1 B1 quarter note played as a half note",
+      "timing": [],
+      "duration": [
+        {"measure": 1, "beat": 1.0, "expected": "too_long"}
+      ],
+      "ignore": [
+        {"measure": 1, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the long note is delayed as a consequence"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_wrong_duration.wav",
+      "score": "minuet",
+      "verified": true,
+      "source": "recorder's notes: M1 B1 quarter note played as a half note",
+      "timing": [],
+      "duration": [
+        {"measure": 1, "beat": 1.0, "expected": "too_long"}
+      ],
+      "ignore": [
+        {"measure": 1, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the long note is delayed as a consequence"}
+      ]
+    },
+
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_flute_multiple_errors.wav",
+      "score": "minuet",
+      "verified": true,
+      "source": "recorder's notes",
+      "other_errors": "A4 at m1 b2 played as B4; E4 at m2 b1.5 skipped; extra E5 inserted at m3 b2",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 3, "beat": 3.0, "check": ["duration"],
+         "reason": "recorder unsure whether A4 was held long"},
+        {"measure": 4, "beat": 1.0, "check": ["timing"],
+         "reason": "note after the possibly long A4"},
+        {"measure": 2, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 2, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the missing note"},
+        {"measure": 3, "beat": 1.0, "check": ["duration"],
+         "reason": "note before the extra note"},
+        {"measure": 3, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the extra note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_piano_multiple_errors.wav",
+      "score": "minuet",
+      "verified": true,
+      "source": "recorder's notes",
+      "other_errors": "A4 at m1 b2 played as G4; F4 at m2 b2 left out; extra D5 inserted at m3 b2",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.5, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 3, "beat": 1.0, "check": ["timing", "duration"],
+         "reason": "note after the missing note, before the extra note"},
+        {"measure": 3, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the extra note"}
+      ]
+    },
+    {
+      "file": "test_music/Minuet_in_F/performances/minuet_measures_1_4_violin_multiple_errors.wav",
+      "score": "minuet",
+      "verified": true,
+      "source": "recorder's notes",
+      "other_errors": "A4 at m1 b2 played as G4; F4 at m2 b2 left out; extra D5 inserted at m3 b2",
+      "timing": [],
+      "duration": [],
+      "ignore": [
+        {"measure": 2, "beat": 1.5, "check": ["duration"],
+         "reason": "note before the missing note"},
+        {"measure": 3, "beat": 1.0, "check": ["timing", "duration"],
+         "reason": "note after the missing note, before the extra note"},
+        {"measure": 3, "beat": 2.0, "check": ["timing"],
+         "reason": "note after the extra note"}
+      ]
+    }
+  ]
+}
