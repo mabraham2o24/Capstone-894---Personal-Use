@@ -1,5 +1,5 @@
 
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -10,13 +10,42 @@ import {
 } from 'react-router-dom'
 import PerformanceResults from '../pages/PerformanceResults.jsx'
 
-// Sample MusicXML information from the previous pages.
+// Sprint 4 - Mock the temporary MusicXML file request during tests.
+// This prevents ERR_INVALID_URL in Node.js without changing the app.
+const SAMPLE_MUSICXML = `
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1">
+      <part-name>Piano</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1"/>
+  </part>
+</score-partwise>
+`
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => SAMPLE_MUSICXML,
+    })
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+//* Sample MusicXML information from the previous pages.
 const mockScoreResult = {
   filename: 'sample.musicxml',
   status: 'processed',
 }
 
-// Sample audio-analysis results returned by FastAPI.
+//* Sample audio-analysis results returned by FastAPI.
 const mockAudioResult = {
   filename: 'performance.wav',
   status: 'processed',
@@ -28,7 +57,7 @@ const mockAudioResult = {
   ],
 }
 
-// Sample Sprint 2 note-level feedback.
+//* Sample Sprint 2 note-level feedback.
 const mockNoteFeedback = [
   {
     measure: 3,
@@ -98,9 +127,9 @@ const mockNoteFeedback = [
   },
 ]
 
-// Sample Sprint 3 performance summary.
-// Percentages are already on the 0-100 scale.
-// Problem-area error rates are on the 0-1 scale.
+//* Sample Sprint 3 performance summary.
+//* Percentages are already on the 0-100 scale.
+//* Problem-area error rates are on the 0-1 scale.
 const mockPerformanceSummary = {
   metrics: {
     pitch_accuracy: {
@@ -176,7 +205,7 @@ const mockPerformanceSummary = {
   ],
 }
 
-// Mock page for testing navigation back to Performance Upload.
+//* Mock page for testing navigation back to Performance Upload.
 function MockPerformanceUpload() {
   const location = useLocation()
 
@@ -191,7 +220,7 @@ function MockPerformanceUpload() {
   )
 }
 
-// Render Performance Results with optional session data.
+//* Render Performance Results with optional session data.
 function renderPerformanceResults(state = null) {
   return render(
     <MemoryRouter
@@ -220,7 +249,7 @@ function renderPerformanceResults(state = null) {
   )
 }
 
-// Standard valid session information.
+//* Standard valid session information.
 function createValidSession(audioResult = mockAudioResult) {
   return {
     sessionId: 123,
@@ -231,7 +260,7 @@ function createValidSession(audioResult = mockAudioResult) {
   }
 }
 
-// Session with Sprint 2 note-level feedback.
+//* Session with Sprint 2 note-level feedback.
 function createFeedbackSession() {
   return createValidSession({
     ...mockAudioResult,
@@ -240,7 +269,7 @@ function createFeedbackSession() {
   })
 }
 
-// Session with all Sprint 3 results.
+//* Session with all Sprint 3 results.
 function createSprint3Session() {
   return createValidSession({
     ...mockAudioResult,
@@ -250,7 +279,7 @@ function createSprint3Session() {
   })
 }
 
-// Session with insufficient audio data for UAT-06.
+//* Session with insufficient audio data for UAT-06.
 function createInsufficientAudioSession() {
   return createValidSession({
     filename: 'canon_measures_3_6_insufficient_data.wav',
@@ -262,7 +291,7 @@ function createInsufficientAudioSession() {
   })
 }
 
-// Session with successful analysis and no problem areas.
+//* Session with successful analysis and no problem areas.
 function createNoProblemAreasSession() {
   return createValidSession({
     ...mockAudioResult,
@@ -274,29 +303,27 @@ function createNoProblemAreasSession() {
   })
 }
 
-// Get the Performance Feedback table.
+//* Get the Performance Feedback table.
 function getFeedbackTable() {
   const heading = screen.getByRole('heading', {
     name: 'Performance Feedback',
   })
 
   const column = heading.closest('.performance-results-column')
-
   return within(column).getByRole('table')
 }
 
-// Get the Performance Summary metric cards.
+//* Get the Performance Summary metric cards.
 function getMetricCard(label) {
   const summary = document.querySelector(
     '.performance-results-layout .summary-grid'
   )
 
   const labelElement = within(summary).getByText(label)
-
   return labelElement.parentElement
 }
 
-// Get a problem-area overview card for a specific measure.
+//* Get a problem-area overview card for a specific measure.
 function getProblemCard(measure) {
   const cards = document.querySelectorAll(
     '.performance-problem-card'
@@ -309,7 +336,7 @@ function getProblemCard(measure) {
   )
 }
 
-// Get the error-location card for a specific measure.
+//* Get the error-location card for a specific measure.
 function getErrorLocationCard(measure) {
   const cards = document.querySelectorAll(
     '.error-location-measure-card'
@@ -323,8 +350,7 @@ function getErrorLocationCard(measure) {
 }
 
 describe('Performance Results Page Tests', () => {
-
-  // TEST 1: Verify the redesigned audio-processing summary.
+  //* TEST 1: Verify the redesigned audio-processing summary.
   test('displays audio-processing summary', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -361,7 +387,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 2: Verify individual detected pitch badges.
+  //* TEST 2: Verify individual detected pitch badges.
   test('displays detected pitches correctly', () => {
     renderPerformanceResults(createValidSession())
 
@@ -384,7 +410,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 3: Verify note-event counts.
+  //* TEST 3: Verify note-event counts.
   test('displays detected note-event count', () => {
     renderPerformanceResults(createValidSession())
 
@@ -407,7 +433,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 4: Verify empty detected pitches and note events.
+  //* TEST 4: Verify empty detected pitches and note events.
   test('handles a performance with no detected notes', () => {
     const emptyAudioResult = {
       ...mockAudioResult,
@@ -440,7 +466,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 5: Verify missing performance data.
+  //* TEST 5: Verify missing performance data.
   test('displays a message when no performance is available', () => {
     renderPerformanceResults()
 
@@ -457,7 +483,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 6: Verify navigation to Performance Upload.
+  //* TEST 6: Verify navigation to Performance Upload.
   test('returns to Performance Upload with session and measures', async () => {
     const user = userEvent.setup()
 
@@ -490,7 +516,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 7: Verify navigation to Dashboard.
+  //* TEST 7: Verify navigation to Dashboard.
   test('returns to Dashboard', async () => {
     const user = userEvent.setup()
 
@@ -507,7 +533,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 8: Verify Dashboard navigation when data is missing.
+  //* TEST 8: Verify Dashboard navigation when data is missing.
   test('returns to Dashboard when data is missing', async () => {
     const user = userEvent.setup()
 
@@ -524,7 +550,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 9: Verify selected measure range.
+  //* TEST 9: Verify selected measure range.
   test('displays selected starting and ending measures', () => {
     renderPerformanceResults(createValidSession())
 
@@ -541,7 +567,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 10: Verify score-to-performance alignment.
+  //* TEST 10: Verify score-to-performance alignment.
   test('displays expected and played notes with measure and beat', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -566,7 +592,7 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // TEST 11: Verify incorrect pitch feedback.
+  //* TEST 11: Verify incorrect pitch feedback.
   test('displays incorrect pitch feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -589,7 +615,7 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // TEST 12: Verify missing-note feedback.
+  //* TEST 12: Verify missing-note feedback.
   test('displays missing note feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -612,7 +638,7 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // TEST 13: Verify additional-note feedback.
+  //* TEST 13: Verify additional-note feedback.
   test('displays additional note feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -635,7 +661,7 @@ describe('Performance Results Page Tests', () => {
     ])
   })
 
-  // TEST 14: Verify early and late timing feedback.
+  //* TEST 14: Verify early and late timing feedback.
   test('displays early and late timing feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -650,7 +676,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 15: Verify note-duration classifications.
+  //* TEST 15: Verify note-duration classifications.
   test('displays too short and too long duration feedback', () => {
     renderPerformanceResults(createFeedbackSession())
 
@@ -665,7 +691,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 16 - US-14: Pitch accuracy.
+  //* TEST 16 - US-14: Pitch accuracy.
   test('displays pitch accuracy percentage and note counts', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -684,7 +710,7 @@ describe('Performance Results Page Tests', () => {
     ).toHaveStyle({ width: '93.75%' })
   })
 
-  // TEST 17 - US-15: Rhythmic accuracy.
+  //* TEST 17 - US-15: Rhythmic accuracy.
   test('displays rhythm, onset, and duration accuracy', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -707,7 +733,7 @@ describe('Performance Results Page Tests', () => {
     ).toHaveStyle({ width: '92.19%' })
   })
 
-  // TEST 18 - US-16: Tempo consistency.
+  //* TEST 18 - US-16: Tempo consistency.
   test('displays tempo consistency and variation', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -726,7 +752,7 @@ describe('Performance Results Page Tests', () => {
     ).toHaveStyle({ width: '90.17%' })
   })
 
-  // TEST 19 - US-18: Note sequence accuracy.
+  //* TEST 19 - US-18: Note sequence accuracy.
   test('displays note sequence accuracy', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -745,7 +771,7 @@ describe('Performance Results Page Tests', () => {
     ).toHaveStyle({ width: '87.5%' })
   })
 
-  // TEST 20 - US-18: Detected error counts.
+  //* TEST 20 - US-18: Detected error counts.
   test('displays incorrect, missing, and additional note counts', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -782,7 +808,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 21 - US-17: Problem-area measure statistics.
+  //* TEST 21 - US-17: Problem-area measure statistics.
   test('displays problem-area statistics and error rate', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -805,7 +831,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 22 - US-17: Practice recommendations.
+  //* TEST 22 - US-17: Practice recommendations.
   test('displays practice recommendations for problem areas', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -829,7 +855,7 @@ describe('Performance Results Page Tests', () => {
     ).toHaveClass('practice-not-required')
   })
 
-  // TEST 23 - US-17: Error types.
+  //* TEST 23 - US-17: Error types.
   test('displays error types and counts for problem measures', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -848,7 +874,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 24 - US-17: Error locations.
+  //* TEST 24 - US-17: Error locations.
   test('displays beats and expected and played notes', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -875,7 +901,7 @@ describe('Performance Results Page Tests', () => {
     ).toEqual(['4', 'C#5', 'C5'])
   })
 
-  // TEST 25 - US-17: Missing-note highlighting.
+  //* TEST 25 - US-17: Missing-note highlighting.
   test('highlights missing played notes', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -890,7 +916,7 @@ describe('Performance Results Page Tests', () => {
     expect(missingNote).toHaveTextContent('N/A')
   })
 
-  // TEST 26 - US-17: Color-coded error labels.
+  //* TEST 26 - US-17: Color-coded error labels.
   test('assigns correct CSS classes to detected errors', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -914,8 +940,8 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 27: Missing performance summary.
-  // Updated for UAT-06 insufficient audio data handling.
+  //* TEST 27: Missing performance summary.
+  //* Updated for UAT-06 insufficient audio data handling.
   test('handles audio results without a performance summary', () => {
     renderPerformanceResults(createValidSession())
 
@@ -938,8 +964,8 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 28: No problem areas.
-  // Updated for Keya's second UAT suggestion.
+  //* TEST 28: No problem areas.
+  //* Updated for Keya's second UAT suggestion.
   test('handles an empty problem-area list', () => {
     renderPerformanceResults(createNoProblemAreasSession())
 
@@ -956,8 +982,8 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 29: Missing note-level feedback.
-  // Updated for UAT-06 insufficient audio data handling.
+  //* TEST 29: Missing note-level feedback.
+  //* Updated for UAT-06 insufficient audio data handling.
   test('handles a performance without note-level feedback', () => {
     renderPerformanceResults(createValidSession())
 
@@ -968,7 +994,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 30: Progress bar boundaries.
+  //* TEST 30: Progress bar boundaries.
   test('clamps progress bar widths between zero and 100 percent', () => {
     const audioResult = {
       ...mockAudioResult,
@@ -1000,7 +1026,7 @@ describe('Performance Results Page Tests', () => {
     ).toHaveStyle({ width: '0%' })
   })
 
-  // TEST 31: Playback controls are disabled.
+  //* TEST 31: Playback controls are disabled.
   test('keeps future playback controls disabled', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -1017,7 +1043,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeDisabled()
   })
 
-  // TEST 32 - UAT-06: Insufficient audio warning.
+  //* TEST 32 - UAT-06: Insufficient audio warning.
   test('displays an insufficient audio data warning', () => {
     renderPerformanceResults(createInsufficientAudioSession())
 
@@ -1032,7 +1058,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 33 - UAT-06: Session status badge.
+  //* TEST 33 - UAT-06: Session status badge.
   test('displays Insufficient Data instead of Analysis Complete', () => {
     renderPerformanceResults(createInsufficientAudioSession())
 
@@ -1049,7 +1075,7 @@ describe('Performance Results Page Tests', () => {
     ).not.toBeInTheDocument()
   })
 
-  // TEST 34 - UAT-06: Hide misleading success messages.
+  //* TEST 34 - UAT-06: Hide misleading success messages.
   test('does not display success messages for insufficient audio', () => {
     renderPerformanceResults(createInsufficientAudioSession())
 
@@ -1062,7 +1088,7 @@ describe('Performance Results Page Tests', () => {
     ).not.toBeInTheDocument()
   })
 
-  // TEST 35 - UAT-06: Valid audio still shows successful analysis.
+  //* TEST 35 - UAT-06: Valid audio still shows successful analysis.
   test('displays Analysis Complete for valid performance metrics', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -1079,7 +1105,7 @@ describe('Performance Results Page Tests', () => {
     ).not.toBeInTheDocument()
   })
 
-  // TEST 36 - UAT-06: Zero accuracy is a valid metric.
+  //* TEST 36 - UAT-06: Zero accuracy is a valid metric.
   test('does not classify zero percent accuracy as insufficient data', () => {
     const audioResult = {
       ...mockAudioResult,
@@ -1113,7 +1139,7 @@ describe('Performance Results Page Tests', () => {
     ).not.toBeInTheDocument()
   })
 
-  // TEST 37 - UAT: Successful analysis shows green empty states.
+  //* TEST 37 - UAT: Successful analysis shows green empty states.
   test('displays green success styling when no problem areas are found', () => {
     renderPerformanceResults(createNoProblemAreasSession())
 
@@ -1146,7 +1172,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 38 - UAT: Insufficient audio shows neutral empty states.
+  //* TEST 38 - UAT: Insufficient audio shows neutral empty states.
   test('displays neutral messages when problem areas cannot be evaluated', () => {
     renderPerformanceResults(createInsufficientAudioSession())
 
@@ -1179,7 +1205,7 @@ describe('Performance Results Page Tests', () => {
     ).toBeInTheDocument()
   })
 
-  // TEST 39 - UAT: Existing problem-area cards remain unchanged.
+  //* TEST 39 - UAT: Existing problem-area cards remain unchanged.
   test('preserves problem-area cards when errors are detected', () => {
     renderPerformanceResults(createSprint3Session())
 
@@ -1208,5 +1234,4 @@ describe('Performance Results Page Tests', () => {
       document.querySelector('.performance-empty-neutral')
     ).not.toBeInTheDocument()
   })
-
 })

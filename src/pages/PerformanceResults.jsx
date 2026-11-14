@@ -1,10 +1,46 @@
 
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import AnnotatedSheetMusic from '../components/AnnotatedSheetMusic'
 
 function PerformanceResults() {
-  //* Navigation and session information*
+  // Navigation and session information
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Sprint 4 - Temporarily load the longer MusicXML sample.
+  // Backend integration will replace this with the uploaded score.
+  const [musicXML, setMusicXML] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSampleScore = async () => {
+      try {
+        const response = await fetch('/sample_long.musicxml')
+
+        if (!response.ok) {
+          throw new Error('Could not load sample_long.musicxml.')
+        }
+
+        const xml = await response.text()
+
+        if (!cancelled) {
+          setMusicXML(xml)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Sample MusicXML loading error:', error)
+        }
+      }
+    }
+
+    loadSampleScore()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const sessionId = location.state?.sessionId
   const scoreResult = location.state?.scoreResult
@@ -12,30 +48,30 @@ function PerformanceResults() {
   const startMeasure = location.state?.startMeasure
   const endMeasure = location.state?.endMeasure
 
-  //* Note-level feedback*
+  // Note-level feedback
   const noteFeedback = audioResult?.note_feedback ?? []
 
-  //* Sprint 3 performance summary*
+  // Sprint 3 performance summary
   const performanceSummary = audioResult?.performance_summary
   const metrics = performanceSummary?.metrics
 
-  //* US-14, US-15, US-16 - Performance accuracy metrics*
+  // US-14, US-15, US-16 - Performance accuracy metrics
   const pitchAccuracy = metrics?.pitch_accuracy
   const rhythmicAccuracy = metrics?.rhythmic_accuracy
   const tempoConsistency = metrics?.tempo_consistency
   const noteSequenceAccuracy = metrics?.note_sequence_accuracy
 
-  //* US-17 - Problem areas*
+  // US-17 - Problem areas
   const problemAreas =
     performanceSummary?.problem_areas ??
     audioResult?.problem_areas ??
     []
 
-  //* US-18 - Detected error counts*
+  // US-18 - Detected error counts
   const errorCounts = performanceSummary?.error_counts
 
-  //* UAT-06 - Detect when the backend could not calculate metrics.*
-  //* A valid accuracy of 0% must NOT count as missing data.*
+  // UAT-06 - Detect when the backend could not calculate metrics.
+  // A valid accuracy of 0% must NOT count as missing data.
   const hasCalculatedMetrics = [
     pitchAccuracy?.accuracy_percent,
     rhythmicAccuracy?.accuracy_percent,
@@ -50,7 +86,7 @@ function PerformanceResults() {
 
   const hasInsufficientAudioData = !hasCalculatedMetrics
 
-  //* Format note feedback statuses*
+  // Format note feedback statuses
   const formatStatus = (status) => {
     if (status == null || status === '') {
       return 'Not available'
@@ -59,7 +95,7 @@ function PerformanceResults() {
     return String(status).replace(/_/g, ' ')
   }
 
-  //* Apply existing status colors*
+  // Apply existing status colors
   const getStatusClass = (status) => {
     if (status == null || status === '') {
       return 'feedback-status-neutral'
@@ -97,7 +133,7 @@ function PerformanceResults() {
     return 'feedback-status-neutral'
   }
 
-  //* Display unavailable values*
+  // Display unavailable values
   const formatValue = (value) => {
     if (value == null || value === '') {
       return 'N/A'
@@ -106,7 +142,7 @@ function PerformanceResults() {
     return String(value)
   }
 
-  //* Backend metric percentages are already on a 0-100 scale*
+  // Backend metric percentages are already on a 0-100 scale
   const formatPercent = (value) => {
     if (
       value == null ||
@@ -119,7 +155,7 @@ function PerformanceResults() {
     return `${Number(value).toFixed(2)}%`
   }
 
-  //* Keep progress bar widths between 0% and 100%*
+  // Keep progress bar widths between 0% and 100%
   const getProgressWidth = (value) => {
     if (value == null || value === '') {
       return '0%'
@@ -134,12 +170,12 @@ function PerformanceResults() {
     return `${Math.max(0, Math.min(100, percentage))}%`
   }
 
-  //* Make error type names easier to read*
+  // Make error type names easier to read
   const formatErrorType = (errorType) => {
     return String(errorType).replace(/_/g, ' ')
   }
 
-  //* Create CSS classes for color-coded error types*
+  // Create CSS classes for color-coded error types
   const getErrorTypeClass = (errorType) => {
     return `error-type-${String(errorType)
       .toLowerCase()
@@ -147,7 +183,7 @@ function PerformanceResults() {
       .replace(/\s+/g, '-')}`
   }
 
-  //* Determine whether a played note is missing*
+  // Determine whether a played note is missing
   const isMissingPlayedNote = (errorLocation) => {
     const errors = errorLocation.errors ?? []
 
@@ -156,7 +192,7 @@ function PerformanceResults() {
     )
   }
 
-  //* Format selected measure range for Session Overview*
+  // Format selected measure range for Session Overview
   const formatMeasureRange = () => {
     if (startMeasure == null && endMeasure == null) {
       return 'N/A'
@@ -176,7 +212,7 @@ function PerformanceResults() {
     return `${startMeasure}–${endMeasure}`
   }
 
-  //* Prevent errors when opening the page without session data*
+  // Prevent errors when opening the page without session data
   if (!sessionId || !audioResult) {
     return (
       <div className="performance-results-page">
@@ -202,7 +238,7 @@ function PerformanceResults() {
     <div className="performance-results-page">
       <div className="performance-card">
 
-        {/** Back to performance upload **/}
+        {/* Back to performance upload */}
         <button
           className="back-button"
           onClick={() =>
@@ -219,7 +255,7 @@ function PerformanceResults() {
           ← Back to Performance Upload
         </button>
 
-        {/** PERFORMANCE RESULTS HEADING **/}
+        {/* PERFORMANCE RESULTS HEADING */}
         <div className="performance-results-header">
           <h1>Performance Results</h1>
 
@@ -242,7 +278,7 @@ function PerformanceResults() {
           )}
         </div>
 
-        {/** UAT-06 - Insufficient audio explanation **/}
+        {/* UAT-06 - Insufficient audio explanation */}
         {hasInsufficientAudioData && (
           <div
             className="performance-insufficient-warning"
@@ -286,7 +322,7 @@ function PerformanceResults() {
           </div>
         )}
 
-        {/** SESSION OVERVIEW **/}
+        {/* SESSION OVERVIEW */}
         <div className="performance-session-overview">
           <div className="performance-session-heading">
             <h2>Session Overview</h2>
@@ -309,7 +345,7 @@ function PerformanceResults() {
             </span>
           </div>
 
-          {/** First row - recording information **/}
+          {/* First row - recording information */}
           <div className="performance-session-info-grid">
             <div className="performance-session-info-card">
               <span>Audio File</span>
@@ -326,7 +362,7 @@ function PerformanceResults() {
             </div>
           </div>
 
-          {/** Second row - session statistics **/}
+          {/* Second row - session statistics */}
           <div className="performance-session-stats-grid">
             <div className="performance-session-stat-card">
               <span className="performance-session-stat-icon">
@@ -358,10 +394,14 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/** THREE-COLUMN PERFORMANCE RESULTS LAYOUT **/}
+        {/* SPRINT 4 - ANNOTATED SHEET MUSIC */}
+        {/* Temporarily displays the eight-measure test score */}
+        <AnnotatedSheetMusic musicXML={musicXML} />
+
+        {/* THREE-COLUMN PERFORMANCE RESULTS LAYOUT */}
         <div className="performance-results-layout">
 
-          {/** LEFT COLUMN - PERFORMANCE SUMMARY **/}
+          {/* LEFT COLUMN - PERFORMANCE SUMMARY */}
           <div className="performance-results-column">
             <h2>Performance Summary</h2>
 
@@ -379,7 +419,7 @@ function PerformanceResults() {
             ) : (
               <div className="summary-grid">
 
-                {/** US-14 - Pitch Accuracy **/}
+                {/* US-14 - Pitch Accuracy */}
                 <div>
                   <span>Pitch Accuracy</span>
                   <strong>
@@ -404,7 +444,7 @@ function PerformanceResults() {
                   </p>
                 </div>
 
-                {/** US-15 - Rhythmic Accuracy **/}
+                {/* US-15 - Rhythmic Accuracy */}
                 <div>
                   <span>Rhythmic Accuracy</span>
                   <strong>
@@ -437,7 +477,7 @@ function PerformanceResults() {
                   </p>
                 </div>
 
-                {/** US-16 - Tempo Consistency **/}
+                {/* US-16 - Tempo Consistency */}
                 <div>
                   <span>Tempo Consistency</span>
                   <strong>
@@ -465,7 +505,7 @@ function PerformanceResults() {
                   </p>
                 </div>
 
-                {/** Note Sequence Accuracy **/}
+                {/* Note Sequence Accuracy */}
                 <div>
                   <span>Note Sequence Accuracy</span>
                   <strong>
@@ -497,7 +537,7 @@ function PerformanceResults() {
             )}
           </div>
 
-          {/** MIDDLE COLUMN - PERFORMANCE FEEDBACK **/}
+          {/* MIDDLE COLUMN - PERFORMANCE FEEDBACK */}
           <div className="performance-results-column">
             <h2>Performance Feedback</h2>
 
@@ -582,7 +622,7 @@ function PerformanceResults() {
             )}
           </div>
 
-          {/** RIGHT COLUMN - DISPLAY OPTIONS **/}
+          {/* RIGHT COLUMN - DISPLAY OPTIONS */}
           <div className="performance-results-column performance-options-column">
             <h2>Display Options</h2>
 
@@ -606,7 +646,7 @@ function PerformanceResults() {
               Audio playback will be available in a future sprint.
             </p>
 
-            {/** Color key for errors **/}
+            {/* Color key for errors */}
             <div className="performance-legend">
               <h3>Legend</h3>
 
@@ -640,7 +680,7 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/** PERFORMANCE ERRORS & PROBLEM AREAS **/}
+        {/* PERFORMANCE ERRORS & PROBLEM AREAS */}
         <div className="performance-section performance-errors-section">
           <h2>Performance Errors &amp; Problem Areas</h2>
 
@@ -649,7 +689,7 @@ function PerformanceResults() {
             require additional practice.
           </p>
 
-          {/** US-18 - Detected Error Counts **/}
+          {/* US-18 - Detected Error Counts */}
           <h3 className="performance-errors-heading">
             Detected Error Counts
           </h3>
@@ -677,7 +717,7 @@ function PerformanceResults() {
             </div>
           </div>
 
-          {/** US-17 - Problem Area Overview **/}
+          {/* US-17 - Problem Area Overview */}
           <div className="performance-problem-overview">
             <h3>Problem Areas</h3>
 
@@ -777,7 +817,7 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/** ERROR LOCATIONS **/}
+        {/* ERROR LOCATIONS */}
         <div className="performance-section performance-error-locations-section">
           <h2>Error Locations</h2>
 
@@ -906,7 +946,7 @@ function PerformanceResults() {
           )}
         </div>
 
-        {/** DETECTED PITCHES **/}
+        {/* DETECTED PITCHES */}
         <div className="performance-section performance-detected-pitches-section">
           <h2>Detected Pitches</h2>
 
@@ -943,7 +983,7 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/** Back to dashboard **/}
+        {/* Back to dashboard */}
         <div className="page-actions">
           <button
             className="upload-button"
