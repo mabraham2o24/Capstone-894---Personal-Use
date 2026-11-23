@@ -238,6 +238,110 @@ function getTransferredAudioResult() {
   )
 }
 
+
+/**
+ * US-06: Mock microphone and AudioWorklet browser APIs.
+ *
+ * Simulates microphone capture without requiring real hardware.
+ */
+function mockMicrophoneRecording() {
+  const mockTrack = {
+    stop: vi.fn(),
+  }
+
+  const mockStream = {
+    getTracks: vi.fn(() => [mockTrack]),
+  }
+
+  const mockGetUserMedia = vi.fn().mockResolvedValue(mockStream)
+
+  vi.stubGlobal('navigator', {
+    ...navigator,
+    mediaDevices: {
+      getUserMedia: mockGetUserMedia,
+    },
+  })
+
+  const mockAudioContext = {
+    sampleRate: 44100,
+    resume: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+    audioWorklet: {
+      addModule: vi.fn().mockResolvedValue(undefined),
+    },
+    createMediaStreamSource: vi.fn(() => ({
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    })),
+    destination: {},
+  }
+
+  class MockAudioContext {
+    constructor() {
+      Object.assign(this, mockAudioContext)
+    }
+  }
+
+  vi.stubGlobal('AudioContext', MockAudioContext)
+
+  let workletNode
+
+  class MockAudioWorkletNode {
+    constructor() {
+      this.port = {
+        onmessage: null,
+        postMessage: vi.fn((message) => {
+          if (message.type === 'stop') {
+            // Simulate the processor's final acknowledgment.
+            queueMicrotask(() => {
+              this.port.onmessage?.({
+                data: { type: 'stopped' },
+              })
+            })
+          }
+        }),
+        close: vi.fn(),
+      }
+
+      this.connect = vi.fn()
+      this.disconnect = vi.fn()
+
+      workletNode = this
+    }
+  }
+
+  vi.stubGlobal('AudioWorkletNode', MockAudioWorkletNode)
+
+  const mockCreateObjectURL = vi.fn(
+    () => 'blob:recorded-performance'
+  )
+  const mockRevokeObjectURL = vi.fn()
+
+  // Preserve the native URL constructor used by React Router.
+  vi.spyOn(URL, 'createObjectURL')
+    .mockImplementation(mockCreateObjectURL)
+
+  vi.spyOn(URL, 'revokeObjectURL')
+    .mockImplementation(mockRevokeObjectURL)
+
+
+  return {
+    mockGetUserMedia,
+    mockTrack,
+    mockAudioContext,
+    mockCreateObjectURL,
+
+    emitAudio(samples) {
+      workletNode.port.onmessage?.({
+        data: {
+          type: 'audio',
+          samples: new Float32Array(samples),
+        },
+      })
+    },
+  }
+}
+
 // Restore mocks after each test.
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -728,5 +832,260 @@ describe('Performance Upload Page Tests', () => {
       transferredResult.performance_summary
     ).toBeUndefined()
   })
+
+  // UT-072 - US-06:
+  // Verify starting and stopping recording produces a WAV file.
+  test('UT-072: records microphone audio and creates a WAV file', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    // Start recording.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    await waitFor(() => {
+      expect(microphone.mockGetUserMedia).toHaveBeenCalledWith({
+        audio: true,
+      })
+    })
+
+    expect(
+      screen.getByText('Recording in progress...')
+    ).toBeInTheDocument()
+
+    // Simulate captured microphone samples.
+    microphone.emitAudio([
+      0.1, 0.2, -0.1, -0.2, 0.3, -0.3,
+    ])
+
+    // Stop recording.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Stop Recording',
+      })
+    )
+
+    // Verify a WAV recording was generated.
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Recording ready. You can preview or upload it.'
+        )
+      ).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByText('recorded_performance.wav')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    ).toBeEnabled()
+
+    expect(microphone.mockCreateObjectURL)
+      .toHaveBeenCalledTimes(1)
+
+    const recordedFile =
+      microphone.mockCreateObjectURL.mock.calls[0][0]
+
+    expect(recordedFile).toBeInstanceOf(File)
+    expect(recordedFile.name).toBe('recorded_performance.wav')
+    expect(recordedFile.type).toBe('audio/wav')
+    expect(recordedFile.size).toBeGreaterThan(44)
+
+    // Verify microphone resources were released.
+    expect(microphone.mockTrack.stop).toHaveBeenCalled()
+    expect(microphone.mockAudioContext.close).toHaveBeenCalled()
+  })
+
+  // UT-073 - US-06 / FR-04:
+  // Verify microphone permission denial is handled safely.
+  test('UT-073: handles microphone permission denial', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    // Simulate the browser denying microphone access.
+    const permissionError = new Error('Permission denied')
+    permissionError.name = 'NotAllowedError'
+
+    microphone.mockGetUserMedia.mockRejectedValueOnce(
+      permissionError
+    )
+
+    renderPerformanceUpload(validSession)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    // A clear error message should appear.
+    expect(
+      await screen.findByText(
+        'Microphone permission was denied. Please allow microphone access.'
+      )
+    ).toBeInTheDocument()
+
+    // Recording should not have started.
+    expect(
+      screen.queryByText('Recording in progress...')
+    ).not.toBeInTheDocument()
+
+    // The user should be able to retry.
+    expect(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    ).toBeEnabled()
+
+    // No recording should have been generated.
+    expect(
+      microphone.mockCreateObjectURL
+    ).not.toHaveBeenCalled()
+
+    // No recording should be available for preview.
+    expect(
+      screen.queryByText('Recording Preview')
+    ).not.toBeInTheDocument()
+  })
+
+  // IT-041 - US-06 / FR-04:
+  // Verify recorded audio uses the existing analysis upload endpoint.
+  test('IT-041: submits recorded audio for performance analysis', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+    const mockFetch = mockSuccessfulUpload()
+
+    renderPerformanceUpload(validSession)
+
+    // Start microphone recording.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    await screen.findByText('Recording in progress...')
+
+    // Simulate captured audio samples.
+    microphone.emitAudio([
+      0.1, 0.2, -0.1, -0.2, 0.3, -0.3,
+    ])
+
+    // Stop recording and generate the WAV file.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Stop Recording',
+      })
+    )
+
+    await screen.findByText(
+      'Recording ready. You can preview or upload it.'
+    )
+
+    // Submit the recorded performance.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    )
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    const [uploadUrl, uploadOptions] = mockFetch.mock.calls[0]
+
+    // Verify the correct session endpoint.
+    expect(uploadUrl).toBe(
+      'http://127.0.0.1:8000/sessions/123/upload-audio'
+    )
+
+    expect(uploadOptions.method).toBe('POST')
+
+    // Verify the generated recording was uploaded.
+    const recordedFile = uploadOptions.body.get('file')
+
+    expect(recordedFile).toBeInstanceOf(File)
+    expect(recordedFile.name).toBe('recorded_performance.wav')
+    expect(recordedFile.type).toBe('audio/wav')
+    expect(recordedFile.size).toBeGreaterThan(44)
+
+    // Verify the selected measure range was preserved.
+    expect(uploadOptions.body.get('start_measure')).toBe('3')
+    expect(uploadOptions.body.get('end_measure')).toBe('6')
+
+    // Verify successful navigation to results.
+    expect(
+      await screen.findByText('Performance Results Test Page')
+    ).toBeInTheDocument()
+
+    expect(screen.getByText('Session: 123')).toBeInTheDocument()
+    expect(screen.getByText('Start: 3')).toBeInTheDocument()
+    expect(screen.getByText('End: 6')).toBeInTheDocument()
+  })
+
+test('IT-042: rejects empty microphone recordings', async () => {
+  const user = userEvent.setup()
+  const microphone = mockMicrophoneRecording()
+  const mockFetch = vi.fn()
+  vi.stubGlobal('fetch', mockFetch)
+
+  renderPerformanceUpload(validSession)
+
+  // Start recording.
+  await user.click(
+    screen.getByRole('button', { name: 'Start Recording' })
+  )
+
+  await screen.findByText('Recording in progress...')
+
+  // Stop without emitting any audio samples.
+  await user.click(
+    screen.getByRole('button', { name: 'Stop Recording' })
+  )
+
+  // Verify the empty recording is rejected.
+  expect(
+    await screen.findByText(
+      'No audio was captured. Please record again.'
+    )
+  ).toBeInTheDocument()
+
+  // No WAV file or preview should be created.
+  expect(microphone.mockCreateObjectURL).not.toHaveBeenCalled()
+
+  expect(
+    screen.queryByText('recorded_performance.wav')
+  ).not.toBeInTheDocument()
+
+  expect(
+    screen.queryByRole('button', { name: 'Discard Recording' })
+  ).not.toBeInTheDocument()
+
+  // Verify that attempting to upload is blocked.
+  await user.click(
+    screen.getByRole('button', { name: 'Upload Performance' })
+  )
+
+  expect(
+    await screen.findByText('Please choose a WAV audio file first.')
+  ).toBeInTheDocument()
+
+  expect(mockFetch).not.toHaveBeenCalled()
+
+  // The user should be able to retry recording.
+  expect(
+    screen.getByRole('button', { name: 'Start Recording' })
+  ).toBeEnabled()
+})
 
 })
