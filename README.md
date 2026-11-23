@@ -2,9 +2,13 @@
 
 **SWENG 894 Capstone | Penn State | Instructor setup and demonstration guide**
 
-VMI is a local web application that compares a recorded musical performance against a MusicXML score. A React/Vite interface lets you upload a score, select a measure range, and upload a WAV recording. A FastAPI backend extracts musical features, compares performed and expected notes, and reports accuracy metrics, timing/duration differences, and note-level feedback. PostgreSQL stores practice sessions and analysis results.
+VMI is a local web application that compares a musical performance against a MusicXML score. A React/Vite interface allows users to upload sheet music, select a measure range, and either upload an existing WAV recording or record a new performance directly through their microphone.
 
-> **Start here:** For an instructor demonstration, follow [1. Prerequisites](#1-prerequisites), [2. Install and configure](#2-install-and-configure), [3. Start the application](#3-start-the-application), then [4. Run a sample performance](#4-run-a-sample-performance). The repository includes a matching MusicXML/WAV test pair; you do not need to record live audio.
+A FastAPI backend extracts musical features, compares performed and expected notes, and reports pitch, rhythm, tempo, and note-sequence accuracy, along with timing/duration differences and note-level feedback. PostgreSQL stores practice sessions and analysis results.
+
+The application also supports optional AI-generated practice recommendations through a local Ollama model, with deterministic fallback feedback when the model is unavailable.
+
+> **Start here:** For an instructor demonstration, follow [1. Prerequisites](#1-prerequisites), [2. Install and configure](#2-install-and-configure), [3. Start the application](#3-start-the-application), then [4. Run a sample performance](#4-run-a-sample-performance). The repository includes sample MusicXML scores and WAV recordings for testing without a microphone. Alternatively, you can record a performance directly in the browser using the microphone-recording feature.
 
 ## 1. Prerequisites
 
@@ -144,9 +148,36 @@ Follow the browser workflow:
 1. At `http://localhost:5173/`, use the **Login** button to enter the dashboard. **Authentication is a prototype:** no real account credentials or Google sign-in are required by the current frontend.
 2. Click **Start Practice Session** and upload `canon-in-d.mxl`. The application creates a session and parses the score.
 3. On **Score Processing**, review the extracted musical data, then enter **starting measure `3` and ending measure `6`**. Click **Upload Performance**.
-4. Upload `canon_measures_3_6_correct.wav`. Audio processing can take longer than a normal web request because pitch and note events are extracted from the recording.
-5. Review **Performance Results**. The page displays available performance metrics (pitch, rhythm, tempo, and note sequence), note-level pitch/timing/duration statuses, error counts, and problem areas. Exact values depend on the recording and analysis outcome; an unavailable metric can appear as `N/A`.
-6. For a deliberate-error comparison, start a **new practice session** with the same score and measure range and upload `canon_measures_3_6_late_note.wav` or `canon_measures_3_6_incorrect_pitch.wav` instead.
+4. On the **Performance Upload** page, choose one of the following methods:
+
+   **Option A — Upload an existing WAV recording (recommended for reproducible testing)**
+      - Select **Upload Audio File**.
+      - Choose `backend/test_music/Canon_in_D/performances/canon_measures_3_6_correct.wav`.
+      - Confirm that the selected measure range is 3–6.
+      - Click **Upload Performance** to submit the audio for analysis.
+
+   **Option B — Record a new performance using the microphone**
+      - Use a computer with a working microphone and grant microphone access when prompted by the browser.
+      - Click **Start Recording**.
+      - Perform the selected passage of music.
+      - Click **Stop Recording** when finished.
+      - Play the recorded audio preview to confirm that the performance was captured correctly.
+      - If necessary, discard the recording and try again.
+      - Click **Upload Performance** to submit the recorded audio for analysis.
+
+      The recording feature captures microphone audio and converts it to a WAV file before submitting it through the same backend analysis endpoint used for uploaded files.
+
+5. Review the **Performance Results** page. The application displays available performance metrics, including pitch accuracy, rhythmic accuracy, tempo consistency, and note-sequence accuracy, along with note-level feedback and detected performance errors. Exact results depend on the recording and analysis outcome; unavailable metrics may appear as N/A.
+
+6. To test intentional performance errors, start a new practice session using the same score and measure range, then upload one of the provided test recordings:
+
+   - `canon_measures_3_6_late_note.wav` — timing error
+   - `canon_measures_3_6_incorrect_pitch.wav` — pitch error
+   - `canon_measures_3_6_long_note.wav` — duration error
+   - `canon_measures_3_6_missing.wav` — missing-note scenario
+   - `canon_measures_3_6_extra2.wav` — additional-note scenario
+
+   These recordings are provided to exercise different analysis scenarios. Actual detected errors and accuracy values depend on the backend's analysis results.
 
 **Important notation limitation:** The **Annotated Sheet Music** panel currently loads `public/sample_long.musicxml`, **not** the uploaded MusicXML. Its colored noteheads and clickable error descriptions are **frontend mock data** in `src/components/AnnotatedSheetMusic.jsx`, not errors from the current recording. Use the results metrics and feedback tables, rather than that visual panel, to evaluate actual backend analysis.
 
@@ -188,19 +219,13 @@ python -m pytest --cov=music_analysis --cov-report=term-missing -q
 
 The GitHub Actions workflow `.github/workflows/backend-ci.yml` runs backend tests against PostgreSQL 16 with Python 3.14 and installs `libsndfile1` and `ffmpeg`. **Tests may create or change database records; do not run them against a shared or production database.**
 
-**Frontend:** Navigate to the repository root. Check the `scripts` section in `package.json` for the available test command. If a `test` script is defined, run:
+**Frontend:** From the repository root (the directory containing package.json), run:
 
 ```
-npm test
+npx vitest run
 ```
 
-If a `test:run` script is defined instead, run:
-
-```
-npm run test:run
-```
-
-Use the command supported by the current `package.json`.
+This executes the complete frontend test suite once without entering interactive watch mode.
 
 ## 7. Troubleshooting
 
@@ -213,6 +238,10 @@ Use the command supported by the current `package.json`.
 | Website says `Failed to fetch` | Confirm API health at `http://127.0.0.1:8000/`; use `http://localhost:5173/` for Vite; do not let Vite select a different port. |
 | Score upload fails | Select a supported `.xml`, `.musicxml`, or `.mxl` file; try the included `canon-in-d.mxl`. |
 | WAV analysis fails or metrics are `N/A` | Use a `.wav` file that matches the uploaded score and measure range, then inspect backend errors. Low-quality/insufficient audio may not produce reliable metrics. |
+| Microphone permission is denied | Allow microphone access for `http://localhost:5173` in the browser's site permissions. If access was previously blocked, update the permission and retry recording. |
+| Start Recording fails or the microphone is unavailable | Confirm that a microphone is connected, recognized by the operating system, and not blocked by privacy settings. Use a modern browser that supports `getUserMedia`, Web Audio, and AudioWorklet. Access the application through `http://localhost:5173`, which is treated as a trustworthy local origin. |
+| Recording is empty or no audio is captured | Confirm that the correct microphone is selected and functioning. Record an audible passage before clicking **Stop Recording**. Empty recordings are rejected; retry the recording or upload an existing WAV file instead. |
+| Recorded audio uploads but analysis fails | Play the audio preview to confirm that sound was captured. Check that the recording matches the uploaded MusicXML score and selected measure range. Inspect the backend terminal for analysis errors. |
 | AI feedback has generic text | Ollama may be unavailable and the deterministic fallback may have been used; inspect the backend log. |
 | Annotated notation or colored errors do not match the upload | Expected for this revision: the notation and its highlights are mock/demo data. |
 | A results page goes blank after refresh | Start a new session from the dashboard; results are passed between frontend pages through navigation state. |
@@ -221,30 +250,47 @@ To stop the application, press **Ctrl+C** in both server terminals. Run `deactiv
 
 ## 8. Repository reference
 
+
 ```text
 Capstone-894---Personal-Use/
-├── README.md                         # Primary instructor run guide
-├── package.json, package-lock.json   # React/Vite dependencies
-├── src/                              # Frontend pages and visualization
-├── public/                           # Static sample MusicXML assets
+├── README.md                         # Instructor setup guide
+├── package.json                      # React/Vite dependencies
+├── package-lock.json
+├── src/
+│   ├── pages/
+│   │   └── PerformanceUpload.jsx     # WAV upload and microphone recording
+│   ├── utils/
+│   │   └── audioRecording.js         # WAV encoding utility
+│   ├── test/
+│   │   └── PerformanceUpload.test.jsx # Recording and upload tests
+│   └── components/                   # Frontend components
+├── public/
+│   └── audio-recorder-worklet.js     # Browser microphone audio capture
 ├── backend/
-│   ├── main.py                       # FastAPI entry point and endpoints
-│   ├── database.py, models.py        # PostgreSQL persistence
-│   ├── .env.example                  # Configuration template (no secrets)
-│   ├── requirements.txt             # Python dependencies
-│   ├── music_analysis/              # Score/audio analysis and AI feedback
-│   ├── migrations/                  # Existing-database SQL migration
-│   ├── test_music/                  # Sample MusicXML/WAV pairs
-│   └── tests/                       # Backend automated tests
-└── .github/workflows/backend-ci.yml # Backend CI
+│   ├── main.py                       # FastAPI application
+│   ├── database.py                   # PostgreSQL connection
+│   ├── models.py                     # Database models
+│   ├── .env.example                  # Configuration template
+│   ├── requirements.txt              # Python dependencies
+│   ├── music_analysis/               # Audio analysis and AI feedback
+│   ├── migrations/                   # Database migration scripts
+│   ├── test_music/
+│   │   ├── Canon_in_D/               # MusicXML, PDF, MP3, WAV samples
+│   │   └── Minuet_in_F/              # MusicXML, PDF, MP3, WAV samples
+│   └── tests/                        # Backend automated tests
+└── .github/
+    └── workflows/
+        └── backend-ci.yml            # Backend CI
 ```
 
 ### Current scope and limitations
 
-- **Integrated in the browser:** create practice session, upload MusicXML, choose measures, analyze WAV performance, and inspect numeric/note-level results.
-- **Backend-only optional feature:** AI recommendations are available via API, with optional local Ollama and a deterministic fallback.
-- **Demonstration-only visualization:** annotated sheet music and its colored highlights do not correspond to the current uploaded score/recording.
-- **Prototype login:** no real authentication in the current browser UI.
-- **Local installation:** no hosted service or preconfigured database is included; the instructor creates their own PostgreSQL database.
+- **Integrated browser workflow:** Create a practice session, upload a MusicXML score, select measures, upload an existing WAV recording or record audio through the microphone, and review performance analysis results.
+- **Microphone recording:** The browser captures audio, converts it into a WAV file, provides an audio preview, and submits it through the existing performance-analysis API.
+- **Performance analysis:** The backend calculates pitch, rhythm, tempo, and note-sequence accuracy and provides note-level feedback and detected performance errors.
+- **Optional AI feedback:** Personalized practice recommendations are available through the backend API using local Ollama, with deterministic fallback feedback when the model is unavailable.
+- **Annotated sheet music:** The current README identifies this visualization as demonstration data rather than a dynamically annotated rendering of the uploaded score. This limitation should be verified against the latest frontend implementation.
+- **Prototype login:** The application does not currently require real user authentication.
+- **Local installation:** The application runs locally and requires a PostgreSQL database. No hosted deployment or preconfigured database is included.
 
-This README reflects the code inspected on the repository's `main` branch on **November 23, 2026**. If code or dependencies change, reconcile these instructions with the current implementation before submitting the final capstone build.
+The README was updated on **November 23, 2026**, following implementation and verification of US-06 microphone recording. The frontend regression suite passed all 118 tests, and microphone recording was successfully validated through manual user acceptance testing.
