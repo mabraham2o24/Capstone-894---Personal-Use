@@ -109,6 +109,43 @@ def create_session(
     db.refresh(session)
     return {"session_id": str(session.id), "status": session.status}
 
+@app.get("/sessions")
+def list_sessions(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    US-20 / FR-14 - Retrieve the logged-in user's practice history.
+
+    Return successfully analyzed practice sessions in reverse
+    chronological order. Incomplete sessions and sessions belonging
+    to other users are excluded.
+    """
+    sessions = (
+        db.query(PracticeSession)
+        .filter(
+            PracticeSession.user_id == user.id,
+            PracticeSession.status == "audio_analyzed",
+        )
+        .order_by(
+            PracticeSession.created_at.desc(),
+            PracticeSession.id.desc(),
+        )
+        .all()
+    )
+
+    return [
+        {
+            "session_id": str(session.id),
+            "created_at": session.created_at,
+            "status": session.status,
+            "score_filename": session.score_filename,
+            "audio_filename": session.audio_filename,
+            "performance_summary": session.performance_summary,
+        }
+        for session in sessions
+        if session.performance_summary is not None
+    ]
 
 @app.get("/sessions/{session_id}")
 def get_session(
@@ -116,8 +153,17 @@ def get_session(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Fetch a stored session - groundwork for US-20 (review practice history)."""
+    """
+    US-20 / FR-14 - Retrieve a stored practice session.
+
+    Return the authenticated user's saved performance results,
+    including detailed note feedback, problem areas, performance
+    metrics, and AI-generated practice recommendations.
+    """
     session = get_user_session(db, session_id, user)
+
+    summary = session.performance_summary or {}
+
     return {
         "session_id": str(session.id),
         "status": session.status,
@@ -128,6 +174,8 @@ def get_session(
         "note_events": session.note_events,
         "performance_analysis": session.performance_analysis,
         "performance_summary": session.performance_summary,
+        "note_feedback": summary.get("note_feedback", []),
+        "problem_areas": summary.get("problem_areas", []),
         "ai_feedback": session.ai_feedback,
         "created_at": session.created_at,
     }
