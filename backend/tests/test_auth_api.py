@@ -939,3 +939,75 @@ def test_history_persists_after_relogin(
     assert detail_response.json()["performance_analysis"] == (
         session["analysis_response"]["performance_analysis"]
     )
+
+def test_history_retrieves_distinct_session_results(
+    client,
+    test_db,
+):
+    account = signup(client).json()
+    user_id = account["user"]["id"]
+    headers = auth_header(account["access_token"])
+
+    first_id = create_history_session(test_db, user_id)
+    second_id = create_history_session(test_db, user_id)
+
+    # Assign different performance results to each session.
+    with test_db() as db:
+        first = db.get(PracticeSession, UUID(first_id))
+        second = db.get(PracticeSession, UUID(second_id))
+
+        first.performance_summary = {
+            **first.performance_summary,
+            "metrics": {
+                "pitch_accuracy": {
+                    "accuracy_percent": 85
+                }
+            },
+        }
+
+        second.performance_summary = {
+            **second.performance_summary,
+            "metrics": {
+                "pitch_accuracy": {
+                    "accuracy_percent": 95
+                }
+            },
+        }
+
+        db.commit()
+
+    # Verify both sessions appear with their own results.
+    response = client.get("/sessions", headers=headers)
+
+    assert response.status_code == 200
+
+    history = {
+        item["session_id"]: item
+        for item in response.json()
+    }
+
+    assert len(history) == 2
+
+    expected_results = {
+        first_id: 85,
+        second_id: 95,
+    }
+
+    for session_id, expected_accuracy in expected_results.items():
+        listed_summary = history[session_id]["performance_summary"]
+
+        assert listed_summary["metrics"]["pitch_accuracy"][
+            "accuracy_percent"
+        ] == expected_accuracy
+
+        detail_response = client.get(
+            f"/sessions/{session_id}",
+            headers=headers,
+        )
+
+        assert detail_response.status_code == 200
+
+        detail = detail_response.json()
+
+        assert detail["session_id"] == session_id
+        assert detail["performance_summary"] == listed_summary
