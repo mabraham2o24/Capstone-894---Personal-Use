@@ -305,14 +305,51 @@
   font-size: 0.95rem;
 }
 
-.signup-text span {
+.signup-text a {
   color: #60a5fa;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.signup-text span:hover {
+.signup-text a:hover {
   text-decoration: underline;
+}
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-error {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 8px;
+  background: #3a2424;
+  color: #f0b4b4;
+  font-size: 0.95rem;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 18px;
+  color: #707887;
+  font-size: 0.9rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid #2c313c;
+}
+
+.google-signin-button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
 }
 
 /* Login page mobile layout */

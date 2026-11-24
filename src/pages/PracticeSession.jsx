@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { authFetch } from '../auth.js'
+
 function PracticeSession() {
   // Allows navigation between application pages.
   const navigate = useNavigate()
@@ -35,8 +37,8 @@ function PracticeSession() {
 
     try {
       // Create a new practice session.
-      const sessionResponse = await fetch(
-        'http://127.0.0.1:8000/sessions',
+      const sessionResponse = await authFetch(
+        '/sessions',
         {
           method: 'POST',
         }
@@ -53,8 +55,8 @@ function PracticeSession() {
       formData.append('file', selectedFile)
 
       // Upload the MusicXML score.
-      const uploadResponse = await fetch(
-        `http://127.0.0.1:8000/sessions/${sessionData.session_id}/upload-score`,
+      const uploadResponse = await authFetch(
+        `/sessions/${sessionData.session_id}/upload-score`,
         {
           method: 'POST',
           body: formData,

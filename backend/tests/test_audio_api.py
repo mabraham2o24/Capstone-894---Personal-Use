@@ -3,9 +3,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from auth import get_current_user
 from database import Base, get_db
 from main import app
+from models import User
 from pathlib import Path
+from uuid import uuid4
 import pytest
 
 
@@ -34,7 +37,17 @@ def override_get_db():
         db.close()
 
 
+# These tests cover practice sessions, not login, so every request is
+# made as the same logged-in user. Login is covered in test_auth_api.py.
+TEST_USER = User(id=uuid4(), email="tester@example.com", name="Tester")
+
+
+def override_get_current_user():
+    return TEST_USER
+
+
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_current_user] = override_get_current_user
 
 client = TestClient(app)
 

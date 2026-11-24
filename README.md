@@ -60,21 +60,23 @@ cd backend
 cp .env.example .env
 ```
 
-Edit `backend/.env` to contain a **local** connection string (replacing the password):
+Edit `backend/.env` to contain a **local** connection string (replacing the password) and a `JWT_SECRET`, which signs user logins (see [E. Configure login](#e-configure-login)):
 
 ```dotenv
 DATABASE_URL=postgresql://vmi_user:choose_a_local_password@localhost:5432/vmi_dev
+JWT_SECRET=<random value of at least 32 characters>
 ```
 
 The repository's `.env.example` shows a **remote/shared PostgreSQL example** with `sslmode=require`. For a standard local PostgreSQL installation, use the local URL above and omit that shared-server SSL setting. Database configuration is read using `python-dotenv` from `backend/database.py`. **Never commit `.env`, passwords, or database connection secrets.**
 
-On startup, `backend/main.py` calls `Base.metadata.create_all(bind=engine)` to create any missing mapped tables. This works for a **new database**, but it does **not** add missing columns to an existing table. For an older VMI database that lacks the AI-feedback/analysis columns, run the included migration (from the repository root):
+On startup, `backend/main.py` calls `Base.metadata.create_all(bind=engine)` to create any missing mapped tables. This works for a **new database**, but it does **not** add missing columns to an existing table. For an older VMI database, run the included migrations in order (from the repository root): `001` adds the AI-feedback/analysis columns, and `002` adds user login and links practice sessions to users.
 
 ```bash
 psql -U vmi_user -h localhost -d vmi_dev -f backend/migrations/001_add_ai_feedback_columns.sql
+psql -U vmi_user -h localhost -d vmi_dev -f backend/migrations/002_add_user_login.sql
 ```
 
-You will be prompted for the password. This migration is typically unnecessary for a fresh database because the current model creates the columns. See `backend/migrations/README.md` for more detail.
+You will be prompted for the password. These migrations are typically unnecessary for a fresh database because the current model creates the columns. Both are safe to rerun. See `backend/migrations/README.md` for more detail.
 
 ### C. Install backend dependencies
 
@@ -109,6 +111,25 @@ npm ci
 ```
 
 This installs the versions resolved in `package-lock.json`. **Do not run this from `backend/`.**
+
+### E. Configure login
+
+**Required: login secret.** `JWT_SECRET` in `backend/.env` signs each user's login. Use a random value of at least 32 characters; the backend refuses to log users in without one. Generate a value with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+**Optional: Google sign-in.** Email and password accounts work without this step; the **Sign in with Google** button is hidden until a client ID is configured.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project, then open **Google Auth Platform** (or **APIs & Services > OAuth consent screen**) and configure an **External** app.
+2. Under **Audience > Test users**, add every Google account that will sign in. While the app is in testing mode, other accounts are blocked.
+3. Under **Clients** (or **APIs & Services > Credentials**), create an **OAuth client ID** of type **Web application** with these **Authorized JavaScript origins**: `http://localhost` and `http://localhost:5173`. No redirect URIs or client secret are needed.
+4. Add the client ID to both configuration files:
+   - `backend/.env`: `GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com`
+   - `.env` in the repository root (copy `.env.example`): `VITE_GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com`
+
+Restart both servers after changing either `.env` file. **Never commit `.env` files.**
 
 ## 3. Start the application
 
@@ -145,7 +166,7 @@ Other sample files in the same `performances/` folder demonstrate late notes, pi
 
 Follow the browser workflow:
 
-1. At `http://localhost:5173/`, use the **Login** button to enter the dashboard. **Authentication is a prototype:** no real account credentials or Google sign-in are required by the current frontend.
+1. At `http://localhost:5173/`, click **Sign Up** and create an account with an email and a password of at least 8 characters, or click **Sign in with Google** if Google sign-in is configured. You are taken to the dashboard and stay logged in for 24 hours. Use **Logout** on the dashboard to end the login.
 2. Click **Start Practice Session** and upload `canon-in-d.mxl`. The application creates a session and parses the score.
 3. On **Score Processing**, review the extracted musical data, then enter **starting measure `3` and ending measure `6`**. Click **Upload Performance**.
 4. On the **Performance Upload** page, choose one of the following methods:
@@ -190,8 +211,9 @@ The backend includes `POST /sessions/{session_id}/ai-feedback`, which creates pe
 After finishing the sample browser workflow:
 
 1. Copy the **session ID** shown in the application (for example, on the performance upload/results screens).
-2. In Swagger UI, open `POST /sessions/{session_id}/ai-feedback`, click **Try it out**, enter the session ID, and execute.
-3. Inspect the JSON response's `ai_feedback` field, which contains an assessment, recommendations, and a suggested next-session goal. You can also inspect `GET /sessions/{session_id}` for persisted results.
+2. Session endpoints require a login, and only the user who created a session can access it. In Swagger UI, open `POST /auth/login`, click **Try it out**, enter the email and password of the account used in the browser, and execute. Copy the `access_token` value from the response. Click **Authorize** at the top of the page, paste the token, and click **Authorize**.
+3. Open `POST /sessions/{session_id}/ai-feedback`, click **Try it out**, enter the session ID, and execute.
+4. Inspect the JSON response's `ai_feedback` field, which contains an assessment, recommendations, and a suggested next-session goal. You can also inspect `GET /sessions/{session_id}` for persisted results.
 
 To enable **LLM-generated** recommendations, install and start [Ollama](https://ollama.com/), then pull the model used by the backend:
 
@@ -237,6 +259,12 @@ This executes the complete frontend test suite once without entering interactive
 | Audio processing/import errors | Confirm a supported Python build and native audio libraries; check the backend terminal for the underlying exception. |
 | Website says `Failed to fetch` | Confirm API health at `http://127.0.0.1:8000/`; use `http://localhost:5173/` for Vite; do not let Vite select a different port. |
 | Score upload fails | Select a supported `.xml`, `.musicxml`, or `.mxl` file; try the included `canon-in-d.mxl`. |
+| Login or sign-up fails with a server error mentioning `JWT_SECRET` | Add a `JWT_SECRET` of at least 32 characters to `backend/.env` (see [E. Configure login](#e-configure-login)) and restart the backend. |
+| `column practice_sessions.user_id does not exist` | The database predates login. Apply `backend/migrations/002_add_user_login.sql`. |
+| **Sign in with Google** button is missing | Set `VITE_GOOGLE_CLIENT_ID` in the root `.env` and restart `npm run dev`. Email and password login works without it. |
+| Google shows "Access blocked" or an origin error | Open the site at `http://localhost:5173` (not `127.0.0.1`), confirm both JavaScript origins are listed for the OAuth client, and add the Google account as a test user. New origins can take a few minutes to take effect. |
+| "This account uses Google sign-in" | The account was created with Google and has no password. Use **Sign in with Google**. |
+| A session returns "Session not found" | Sessions are private to the user who created them. Log in as that user, or start a new session. |
 | WAV analysis fails or metrics are `N/A` | Use a `.wav` file that matches the uploaded score and measure range, then inspect backend errors. Low-quality/insufficient audio may not produce reliable metrics. |
 | Microphone permission is denied | Allow microphone access for `http://localhost:5173` in the browser's site permissions. If access was previously blocked, update the permission and retry recording. |
 | Start Recording fails or the microphone is unavailable | Confirm that a microphone is connected, recognized by the operating system, and not blocked by privacy settings. Use a modern browser that supports `getUserMedia`, Web Audio, and AudioWorklet. Access the application through `http://localhost:5173`, which is treated as a trustworthy local origin. |
@@ -254,6 +282,7 @@ To stop the application, press **Ctrl+C** in both server terminals. Run `deactiv
 ```text
 Capstone-894---Personal-Use/
 ├── README.md                         # Instructor setup guide
+├── .env.example                      # Frontend configuration template
 ├── package.json                      # React/Vite dependencies
 ├── package-lock.json
 ├── src/
@@ -268,6 +297,7 @@ Capstone-894---Personal-Use/
 │   └── audio-recorder-worklet.js     # Browser microphone audio capture
 ├── backend/
 │   ├── main.py                       # FastAPI application
+│   ├── auth.py                       # Login, sign-up, and Google sign-in
 │   ├── database.py                   # PostgreSQL connection
 │   ├── models.py                     # Database models
 │   ├── .env.example                  # Configuration template
@@ -290,7 +320,7 @@ Capstone-894---Personal-Use/
 - **Performance analysis:** The backend calculates pitch, rhythm, tempo, and note-sequence accuracy and provides note-level feedback and detected performance errors.
 - **Optional AI feedback:** Personalized practice recommendations are available through the backend API using local Ollama, with deterministic fallback feedback when the model is unavailable.
 - **Annotated sheet music:** The current README identifies this visualization as demonstration data rather than a dynamically annotated rendering of the uploaded score. This limitation should be verified against the latest frontend implementation.
-- **Prototype login:** The application does not currently require real user authentication.
+- **User accounts:** Users sign up and log in with an email and password, or with Google when a Google OAuth client ID is configured. Each practice session belongs to the user who created it, and users can only open their own sessions.
 - **Local installation:** The application runs locally and requires a PostgreSQL database. No hosted deployment or preconfigured database is included.
 
 The README was updated on **November 23, 2026**, following implementation and verification of US-06 microphone recording. The frontend regression suite passed all 118 tests, and microphone recording was successfully validated through manual user acceptance testing.

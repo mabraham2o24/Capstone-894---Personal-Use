@@ -11,7 +11,7 @@ will be added as US-05 onward come online.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, String
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from database import Base
@@ -19,15 +19,19 @@ from database import Base
 
 class User(Base):
     """
-    Login is handled via Google OAuth, so there's no password to store -
+    A user signs in with Google, with an email and password, or both.
+
     google_id is the stable "sub" claim from Google's ID token, used to
-    look up the same user on future logins.
+    look up the same user on future Google logins. password_hash holds a
+    bcrypt hash for email/password logins; the password itself is never
+    stored. A user has at least one of the two.
     """
 
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    google_id = Column(String, unique=True, nullable=False)
+    google_id = Column(String, unique=True, nullable=True)
+    password_hash = Column(String, nullable=True)
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -38,6 +42,15 @@ class PracticeSession(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # The user who created the session. Sessions created before login
+    # existed have no owner.
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
 
     # Populated once a MusicXML score has been uploaded (US-02/US-03/US-04)
     score_filename = Column(String, nullable=True)

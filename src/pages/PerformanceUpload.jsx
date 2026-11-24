@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { encodeWav } from '../utils/audioRecording.js'
 
+import { authFetch } from '../auth.js'
+
 function PerformanceUpload() {
   // Allows navigation between application pages.
   const navigate = useNavigate()
@@ -327,8 +329,8 @@ function PerformanceUpload() {
 
       // Send the WAV file and measure range to the
       // existing audio-analysis endpoint.
-      const audioResponse = await fetch(
-        `http://127.0.0.1:8000/sessions/${sessionId}/upload-audio`,
+      const audioResponse = await authFetch(
+        `/sessions/${sessionId}/upload-audio`,
         {
           method: 'POST',
           body: formData,

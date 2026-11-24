@@ -21,8 +21,9 @@ from music21 import converter, tempo
 from sqlalchemy.orm import Session
 from uuid import UUID
 
+from auth import get_current_user, router as auth_router
 from database import Base, engine, get_db
-from models import PracticeSession
+from models import PracticeSession, User
 from music_analysis.audio_pitch import detect_pitches
 from music_analysis.note_events import (
     detect_note_events,
@@ -51,6 +52,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
+
 # Creates the practice_sessions table if it doesn't exist yet. Fine for
 # a prototype; a real migration tool (Alembic) can replace this later.
 Base.metadata.create_all(bind=engine)
@@ -65,14 +68,42 @@ def health_check():
     return {"status": "ok", "message": "Virtual Music Instructor backend is running"}
 
 
+def get_user_session(db, session_id, user):
+    """
+    Return the logged-in user's practice session, or respond 404.
+
+    Another user's session is reported as not found rather than
+    forbidden, so its existence is not revealed.
+    """
+    try:
+        session_uuid = (
+            session_id
+            if isinstance(session_id, UUID)
+            else UUID(session_id)
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = db.get(PracticeSession, session_uuid)
+
+    if session is None or session.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return session
+
+
 @app.post("/sessions")
-def create_session(db: Session = Depends(get_db)):
+def create_session(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """
     US-01 - Create Practice Session.
-    Creates a new (empty) practice session row and returns its id, so
-    the frontend has something to attach an uploaded score to.
+    Creates a new (empty) practice session row for the logged-in user
+    and returns its id, so the frontend has something to attach an
+    uploaded score to.
     """
-    session = PracticeSession(status="created")
+    session = PracticeSession(status="created", user_id=user.id)
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -80,11 +111,13 @@ def create_session(db: Session = Depends(get_db)):
 
 
 @app.get("/sessions/{session_id}")
-def get_session(session_id: str, db: Session = Depends(get_db)):
+def get_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """Fetch a stored session - groundwork for US-20 (review practice history)."""
-    session = db.get(PracticeSession, UUID(session_id))
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = get_user_session(db, session_id, user)
     return {
         "session_id": str(session.id),
         "status": session.status,
@@ -101,7 +134,12 @@ def get_session(session_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/sessions/{session_id}/upload-score")
-async def upload_score(session_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_score(
+    session_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """
     Receive a MusicXML file, save it temporarily, parse it with music21,
     and persist the extracted summary onto the given practice session.
@@ -110,9 +148,7 @@ async def upload_score(session_id: str, file: UploadFile = File(...), db: Sessio
     of US-03/US-04 (extracting pitches, durations, measures, tempo),
     now wired into US-01's session + persistent storage (AR-08).
     """
-    session = db.get(PracticeSession, UUID(session_id))
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = get_user_session(db, session_id, user)
 
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
@@ -167,6 +203,7 @@ async def upload_audio(
     start_measure: int | None = Form(None),
     end_measure: int | None = Form(None),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """
     US-05 / US-07 / US-08.
@@ -174,9 +211,7 @@ async def upload_audio(
     Receive a WAV performance recording, analyze its pitches and
     note events, and store the analysis results on the practice session.
     """
-    session = db.get(PracticeSession, UUID(session_id))
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = get_user_session(db, session_id, user)
 
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_AUDIO_EXTENSIONS:
@@ -333,15 +368,10 @@ async def upload_audio(
 def create_ai_feedback(
     session_id: UUID,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Generate and store personalized practice feedback."""
-    session = db.get(PracticeSession, session_id)
-
-    if session is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Session not found",
-        )
+    session = get_user_session(db, session_id, user)
 
     if session.performance_summary is None:
         raise HTTPException(
