@@ -1,21 +1,55 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+
+import { isLoggedIn, requestLogin } from '../auth.js'
+import GoogleSignInButton from '../components/GoogleSignInButton.jsx'
 
 function Login() {
   // Stores the values entered into the login form.
-  // Real authentication will be connected in a future sprint.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
   // Allows this page to navigate to another route.
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // After logging in, return to the page the user tried to open.
+  const destination = location.state?.from?.pathname || '/dashboard'
+
+  const completeLogin = async (path, body) => {
+    setError('')
+    setLoading(true)
+
+    try {
+      await requestLogin(path, body)
+      navigate(destination, { replace: true })
+    } catch (loginError) {
+      setError(loginError.message)
+      setLoading(false)
+    }
+  }
 
   const handleLogin = (event) => {
     event.preventDefault()
 
-    // Temporary navigation for frontend development.
-    // Replace this with real authentication logic in a future sprint.
-    navigate('/dashboard')
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.')
+      return
+    }
+
+    completeLogin('/auth/login', { email, password })
+  }
+
+  const handleGoogleCredential = (credential) => {
+    completeLogin('/auth/google', { credential })
+  }
+
+  // A logged-in user has nothing to do here.
+  if (isLoggedIn()) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return (
@@ -27,13 +61,14 @@ function Login() {
           Sign in to continue your practice.
         </p>
 
-        <form className="login-form" onSubmit={handleLogin}>
+        <form className="login-form" onSubmit={handleLogin} noValidate>
           <div className="form-group">
             <label htmlFor="email">Email</label>
 
             <input
               id="email"
               type="email"
+              autoComplete="email"
               placeholder="Enter your email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -46,19 +81,35 @@ function Login() {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
 
-          <button className="login-button" type="submit">
-            Login
+          {error && (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            className="login-button"
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
+        <GoogleSignInButton
+          onCredential={handleGoogleCredential}
+          onError={setError}
+        />
+
         <p className="signup-text">
-          Don't have an account? <span>Sign Up</span>
+          Don't have an account? <Link to="/signup">Sign Up</Link>
         </p>
       </div>
     </div>

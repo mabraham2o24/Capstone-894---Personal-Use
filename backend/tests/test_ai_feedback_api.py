@@ -7,9 +7,10 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from auth import get_current_user
 from database import get_db
 from main import app
-from models import PracticeSession
+from models import PracticeSession, User
 from music_analysis.ai_feedback import AIPracticeFeedback, PracticeRecommendation
 
 
@@ -45,6 +46,11 @@ def test_db():
         engine.dispose()
 
 
+# AI feedback requests are made as this logged-in user, who owns the
+# practice sessions created by session_factory.
+TEST_USER = User(id=uuid4(), email="tester@example.com", name="Tester")
+
+
 @pytest.fixture
 def client(test_db):
     """Use the same test database for API requests."""
@@ -55,17 +61,27 @@ def client(test_db):
         finally:
             db.close()
 
-    previous_override = app.dependency_overrides.get(get_db)
-    app.dependency_overrides[get_db] = override_get_db
+    overrides = {
+        get_db: override_get_db,
+        get_current_user: lambda: TEST_USER,
+    }
+
+    previous_overrides = {
+        dependency: app.dependency_overrides.get(dependency)
+        for dependency in overrides
+    }
+
+    app.dependency_overrides.update(overrides)
 
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
-        if previous_override is None:
-            app.dependency_overrides.pop(get_db, None)
-        else:
-            app.dependency_overrides[get_db] = previous_override
+        for dependency, previous in previous_overrides.items():
+            if previous is None:
+                app.dependency_overrides.pop(dependency, None)
+            else:
+                app.dependency_overrides[dependency] = previous
 
 
 @pytest.fixture
@@ -75,6 +91,7 @@ def session_factory(test_db):
         session = PracticeSession(
             status="audio_analyzed" if performance_summary else "created",
             performance_summary=performance_summary,
+            user_id=TEST_USER.id,
         )
 
         db.add(session)

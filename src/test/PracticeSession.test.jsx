@@ -227,7 +227,7 @@ describe('Practice Session Page Tests', () => {
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
       'http://127.0.0.1:8000/sessions',
-      { method: 'POST' }
+      expect.objectContaining({ method: 'POST' })
     )
 
     // Verify score upload request.

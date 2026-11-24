@@ -1,6 +1,8 @@
 
 import { useNavigate } from 'react-router-dom'
 
+import { logout } from '../auth.js'
+
 function Dashboard() {
   // Allows buttons on the dashboard to navigate to other pages.
   const navigate = useNavigate()
@@ -17,11 +19,13 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Temporary logout navigation.
-            Real authentication/logout logic will be added later. */}
+        {/* Ends the login and returns to the Login page */}
         <button
           className="logout-button"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            logout()
+            navigate('/')
+          }}
         >
           Logout
         </button>

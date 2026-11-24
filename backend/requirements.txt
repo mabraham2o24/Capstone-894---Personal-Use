@@ -9,3 +9,7 @@ librosa
 pytest
 httpx
 psycopg[binary]
+google-auth
+requests
+bcrypt
+PyJWT
