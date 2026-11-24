@@ -1,6 +1,13 @@
 
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import {
+  render,
+  screen,
+  within,
+  fireEvent,
+  waitFor,
+  cleanup,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   MemoryRouter,
@@ -25,18 +32,107 @@ const SAMPLE_MUSICXML = `
 </score-partwise>
 `
 
+const REFERENCE_AUDIO_BLOB = new Blob(
+  ['mock reference audio'],
+  { type: 'audio/wav' }
+)
+
+function createReferenceResponse(
+  tempoBpm = '80',
+  tempoSource = 'performance'
+) {
+  return {
+    ok: true,
+    status: 200,
+    blob: async () => REFERENCE_AUDIO_BLOB,
+    headers: new Headers({
+      'Content-Type': 'audio/wav',
+      'X-Tempo-BPM': tempoBpm,
+      'X-Tempo-Source': tempoSource,
+      'X-Audio-Duration': '12.0',
+    }),
+  }
+}
+
+let originalCreateObjectURL
+let originalRevokeObjectURL
+
 beforeEach(() => {
+  originalCreateObjectURL = Object.getOwnPropertyDescriptor(
+    URL,
+    'createObjectURL'
+  )
+
+  originalRevokeObjectURL = Object.getOwnPropertyDescriptor(
+    URL,
+    'revokeObjectURL'
+  )
+
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    writable: true,
+    value: vi.fn((blob) => {
+      if (blob instanceof File) {
+        return 'blob:performance-audio'
+      }
+
+      return 'blob:reference-audio'
+    }),
+  })
+
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    writable: true,
+    value: vi.fn(),
+  })
+
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => SAMPLE_MUSICXML,
+    vi.fn().mockImplementation(async (url) => {
+      if (String(url).includes('/reference-audio')) {
+        return createReferenceResponse()
+      }
+
+      return {
+        ok: true,
+        text: async () => SAMPLE_MUSICXML,
+      }
     })
+  )
+
+  localStorage.setItem(
+    'vmi_access_token',
+    'test-access-token'
   )
 })
 
 afterEach(() => {
+  cleanup()
+
+  localStorage.removeItem('vmi_access_token')
+
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
+
+  if (originalCreateObjectURL) {
+    Object.defineProperty(
+      URL,
+      'createObjectURL',
+      originalCreateObjectURL
+    )
+  } else {
+    delete URL.createObjectURL
+  }
+
+  if (originalRevokeObjectURL) {
+    Object.defineProperty(
+      URL,
+      'revokeObjectURL',
+      originalRevokeObjectURL
+    )
+  } else {
+    delete URL.revokeObjectURL
+  }
 })
 
 //* Sample MusicXML information from the previous pages.
@@ -277,6 +373,19 @@ function createSprint3Session() {
     note_feedback: mockNoteFeedback,
     performance_summary: mockPerformanceSummary,
   })
+}
+
+function createPlaybackSession(
+  filename = 'performance.wav'
+) {
+  return {
+    ...createSprint3Session(),
+    performanceAudioFile: new File(
+      ['mock performance audio'],
+      filename,
+      { type: 'audio/wav' }
+    ),
+  }
 }
 
 //* Session with insufficient audio data for UAT-06.
@@ -1026,21 +1135,30 @@ describe('Performance Results Page Tests', () => {
     ).toHaveStyle({ width: '0%' })
   })
 
-  //* TEST 31: Playback controls are disabled.
-  test('keeps future playback controls disabled', () => {
-    renderPerformanceResults(createSprint3Session())
+  //* TEST 31: Performance and reference audio playback.
+  test('displays both audio playback controls', async () => {
+    renderPerformanceResults(createPlaybackSession())
 
-    expect(
-      screen.getByRole('button', {
-        name: /Play Performance/i,
-      })
-    ).toBeDisabled()
+    const performanceAudio = await screen.findByLabelText(
+      'Your performance audio'
+    )
 
-    expect(
-      screen.getByRole('button', {
-        name: /Expected Audio/i,
-      })
-    ).toBeDisabled()
+    const referenceAudio = await screen.findByLabelText(
+      'Expected reference audio'
+    )
+
+    expect(performanceAudio).toHaveAttribute('controls')
+    expect(referenceAudio).toHaveAttribute('controls')
+
+    expect(performanceAudio).toHaveAttribute(
+      'src',
+      'blob:performance-audio'
+    )
+
+    expect(referenceAudio).toHaveAttribute(
+      'src',
+      'blob:reference-audio'
+    )
   })
 
   //* TEST 32 - UAT-06: Insufficient audio warning.
@@ -1277,5 +1395,326 @@ describe('Performance Results Page Tests', () => {
     expect(
       within(rows[2]).getAllByRole('cell')[playedLengthColumn]
     ).toHaveTextContent('eighth note')
+  })
+
+  //* TEST 41: Authenticated reference audio request.
+  test('requests reference audio for the selected measures', async () => {
+    renderPerformanceResults(createPlaybackSession())
+
+    await screen.findByLabelText('Expected reference audio')
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/sessions/123/reference-audio?start_measure=3&end_measure=6',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-access-token',
+        }),
+      })
+    )
+  })
+
+  //* TEST 42: Uploaded performance audio.
+  test('uses the original uploaded WAV for playback', async () => {
+    const session = createPlaybackSession(
+      'uploaded_performance.wav'
+    )
+
+    renderPerformanceResults(session)
+
+    await screen.findByLabelText('Expected reference audio')
+
+    expect(URL.createObjectURL).toHaveBeenCalledWith(
+      session.performanceAudioFile
+    )
+
+    expect(
+      screen.getByLabelText('Your performance audio')
+    ).toHaveAttribute('src', 'blob:performance-audio')
+  })
+
+  //* TEST 43: Simulated live-recorded WAV playback.
+  test('supports playback of a live-recorded WAV file', async () => {
+    const session = createPlaybackSession(
+      'recorded_performance.wav'
+    )
+
+    renderPerformanceResults(session)
+
+    await screen.findByLabelText('Expected reference audio')
+
+    expect(URL.createObjectURL).toHaveBeenCalledWith(
+      session.performanceAudioFile
+    )
+
+    expect(
+      screen.getByLabelText('Your performance audio')
+    ).toHaveAttribute('controls')
+  })
+
+  //* TEST 44: Selected measure labels.
+  test('displays the selected measures for both audio players', async () => {
+    renderPerformanceResults(createPlaybackSession())
+
+    await screen.findByLabelText('Expected reference audio')
+
+    expect(
+      screen.getByText(/Measures 3–6 · Recorded audio/)
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(/Measures 3–6 · Computer-generated audio/)
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 45: Tempo metadata.
+  test.each([
+    ['100', 'score', 'Specified in the score'],
+    ['80', 'performance', 'Estimated from your performance'],
+    ['120', 'default', 'Default tempo'],
+  ])(
+    'displays %s BPM from the %s tempo source',
+    async (bpm, source, label) => {
+      fetch.mockImplementation(async (url) => {
+        if (String(url).includes('/reference-audio')) {
+          return createReferenceResponse(bpm, source)
+        }
+
+        return {
+          ok: true,
+          text: async () => SAMPLE_MUSICXML,
+        }
+      })
+
+      renderPerformanceResults(createPlaybackSession())
+
+      await screen.findByLabelText('Expected reference audio')
+
+      expect(
+        screen.getByText(`Tempo: ${bpm} BPM · ${label}`)
+      ).toBeInTheDocument()
+    }
+  )
+
+  //* TEST 46: Reference audio loading state.
+  test('displays a loading message while generating reference audio', async () => {
+    let resolveReference
+
+    const pendingReference = new Promise((resolve) => {
+      resolveReference = resolve
+    })
+
+    fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/reference-audio')) {
+        return pendingReference
+      }
+
+      return {
+        ok: true,
+        text: async () => SAMPLE_MUSICXML,
+      }
+    })
+
+    renderPerformanceResults(createPlaybackSession())
+
+    expect(
+      screen.getByText('Generating expected audio...')
+    ).toBeInTheDocument()
+
+    resolveReference(createReferenceResponse())
+
+    await screen.findByLabelText('Expected reference audio')
+
+    expect(
+      screen.queryByText('Generating expected audio...')
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 47: Backend reference audio error.
+  test('displays a reference audio API error without hiding performance playback', async () => {
+    fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/reference-audio')) {
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            detail: 'No score notes found in the selected measure range.',
+          }),
+        }
+      }
+
+      return {
+        ok: true,
+        text: async () => SAMPLE_MUSICXML,
+      }
+    })
+
+    renderPerformanceResults(createPlaybackSession())
+
+    expect(
+      await screen.findByText(
+        'No score notes found in the selected measure range.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByLabelText('Your performance audio')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByLabelText('Expected reference audio')
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 48: Network failure.
+  test('handles a reference audio network failure', async () => {
+    fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/reference-audio')) {
+        throw new Error('Network unavailable')
+      }
+
+      return {
+        ok: true,
+        text: async () => SAMPLE_MUSICXML,
+      }
+    })
+
+    renderPerformanceResults(createPlaybackSession())
+
+    expect(
+      await screen.findByText('Network unavailable')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByLabelText('Your performance audio')
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 49: Performance playback pauses reference audio.
+  test('pauses reference audio when performance playback starts', async () => {
+    renderPerformanceResults(createPlaybackSession())
+
+    const performanceAudio = screen.getByLabelText(
+      'Your performance audio'
+    )
+
+    const referenceAudio = await screen.findByLabelText(
+      'Expected reference audio'
+    )
+
+    const pauseReference = vi
+      .spyOn(referenceAudio, 'pause')
+      .mockImplementation(() => {})
+
+    fireEvent.play(performanceAudio)
+
+    expect(pauseReference).toHaveBeenCalledOnce()
+  })
+
+  //* TEST 50: Reference playback pauses performance audio.
+  test('pauses performance audio when reference playback starts', async () => {
+    renderPerformanceResults(createPlaybackSession())
+
+    const performanceAudio = screen.getByLabelText(
+      'Your performance audio'
+    )
+
+    const referenceAudio = await screen.findByLabelText(
+      'Expected reference audio'
+    )
+
+    const pausePerformance = vi
+      .spyOn(performanceAudio, 'pause')
+      .mockImplementation(() => {})
+
+    fireEvent.play(referenceAudio)
+
+    expect(pausePerformance).toHaveBeenCalledOnce()
+  })
+
+  //* TEST 51: Audio URL cleanup.
+  test('releases both audio object URLs when leaving the page', async () => {
+    const { unmount } = renderPerformanceResults(
+      createPlaybackSession()
+    )
+
+    await screen.findByLabelText('Expected reference audio')
+
+    unmount()
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(
+      'blob:performance-audio'
+    )
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(
+      'blob:reference-audio'
+    )
+  })
+
+  //* TEST 52: Original audio unavailable.
+  test('handles missing original audio while retaining reference playback', async () => {
+    renderPerformanceResults(createSprint3Session())
+
+    expect(
+      screen.getByText(
+        'Original performance audio is unavailable.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      await screen.findByLabelText('Expected reference audio')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByLabelText('Your performance audio')
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 53: Missing session does not request reference audio.
+  test('does not request reference audio without a session', () => {
+    renderPerformanceResults()
+
+    const referenceRequests = fetch.mock.calls.filter(
+      ([url]) => String(url).includes('/reference-audio')
+    )
+
+    expect(referenceRequests).toHaveLength(0)
+  })
+
+  //* TEST 54: Cancel pending request when leaving the page.
+  test('aborts the reference audio request when unmounted', async () => {
+    fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/reference-audio')) {
+        return new Promise(() => {})
+      }
+
+      return {
+        ok: true,
+        text: async () => SAMPLE_MUSICXML,
+      }
+    })
+
+    const { unmount } = renderPerformanceResults(
+      createPlaybackSession()
+    )
+
+    await waitFor(() => {
+      expect(
+        fetch.mock.calls.some(
+          ([url]) => String(url).includes('/reference-audio')
+        )
+      ).toBe(true)
+    })
+
+    const referenceRequest = fetch.mock.calls.find(
+      ([url]) => String(url).includes('/reference-audio')
+    )
+
+    const signal = referenceRequest[1].signal
+
+    expect(signal.aborted).toBe(false)
+
+    unmount()
+
+    expect(signal.aborted).toBe(true)
   })
 })

@@ -17,6 +17,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from music21 import converter, tempo
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -41,6 +42,7 @@ from music_analysis.problem_areas import identify_problem_areas
 from music_analysis.performance_summary import generate_performance_summary
 
 from music_analysis.ai_feedback import generate_ai_feedback
+from music_analysis.reference_audio import generate_reference_audio
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -50,6 +52,11 @@ app.add_middleware(
     allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[
+        "X-Tempo-BPM",
+        "X-Tempo-Source",
+        "X-Audio-Duration",
+    ],
 )
 
 app.include_router(auth_router)
@@ -411,6 +418,67 @@ async def upload_audio(
         "ai_feedback": session.ai_feedback,
     }
 
+@app.get("/sessions/{session_id}/reference-audio")
+def get_reference_audio(
+    session_id: str,
+    start_measure: int,
+    end_measure: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate expected audio for the selected measure range.
+
+    Uses the stored MusicXML score data and, when necessary,
+    the estimated tempo from the user's performance.
+    """
+
+    session = get_user_session(
+        db,
+        session_id,
+        current_user,
+    )
+
+    if not session.score_summary:
+        raise HTTPException(
+            status_code=400,
+            detail="No score has been uploaded for this session.",
+        )
+
+    if session.status != "audio_analyzed":
+        raise HTTPException(
+            status_code=400,
+            detail="The performance must be analyzed before generating reference audio.",
+        )
+
+    try:
+        result = generate_reference_audio(
+            score_summary=session.score_summary,
+            start_measure=start_measure,
+            end_measure=end_measure,
+            performance_analysis=session.performance_analysis,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    return Response(
+        content=result["audio_bytes"],
+        media_type="audio/wav",
+        headers={
+            "Content-Disposition": (
+                f'inline; filename="reference_measures_'
+                f'{start_measure}_{end_measure}.wav"'
+            ),
+            "X-Tempo-BPM": str(result["tempo_bpm"]),
+            "X-Tempo-Source": result["tempo_source"],
+            "X-Audio-Duration": str(result["duration_seconds"]),
+            "Cache-Control": "no-store",
+        },
+    )
 
 @app.post("/sessions/{session_id}/ai-feedback")
 def create_ai_feedback(

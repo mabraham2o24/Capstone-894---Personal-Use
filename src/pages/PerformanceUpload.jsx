@@ -347,15 +347,16 @@ function PerformanceUpload() {
 
       // After successful analysis, go to the
       // Performance Results page.
-      navigate('/performance-results', {
+      navigate("/performance-results", {
         state: {
-          sessionId: sessionId,
-          scoreResult: scoreResult,
+          sessionId,
+          scoreResult,
           audioResult: audioData,
-          startMeasure: startMeasure,
-          endMeasure: endMeasure,
+          startMeasure,
+          endMeasure,
+          performanceAudioFile: audioFile,
         },
-      })
+      });
     } catch (error) {
       setAudioMessage(error.message)
     } finally {

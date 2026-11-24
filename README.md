@@ -6,6 +6,8 @@ VMI is a local web application that compares a musical performance against a Mus
 
 A FastAPI backend extracts musical features, compares performed and expected notes, and reports pitch, rhythm, tempo, and note-sequence accuracy, along with timing/duration differences and note-level feedback. PostgreSQL stores practice sessions and analysis results.
 
+The Performance Results page provides audio playback for comparing the original performance with computer-generated reference audio synthesized from the uploaded MusicXML score. Reference audio is generated for the selected measure range without requiring an additional recording.
+
 The application also supports optional AI-generated practice recommendations through a local Ollama model, with deterministic fallback feedback when the model is unavailable.
 
 > **Start here:** For an instructor demonstration, follow [1. Prerequisites](#1-prerequisites), [2. Install and configure](#2-install-and-configure), [3. Start the application](#3-start-the-application), then [4. Run a sample performance](#4-run-a-sample-performance). The repository includes sample MusicXML scores and WAV recordings for testing without a microphone. Alternatively, you can record a performance directly in the browser using the microphone-recording feature.
@@ -190,6 +192,21 @@ Follow the browser workflow:
 
 5. Review the **Performance Results** page. The application displays available performance metrics, including pitch accuracy, rhythmic accuracy, tempo consistency, and note-sequence accuracy, along with note-level feedback and detected performance errors. Exact results depend on the recording and analysis outcome; unavailable metrics may appear as N/A.
 
+   Under **Audio Review**, compare the two recordings:
+
+   - **Your Performance:** Plays the original uploaded WAV file or microphone recording.
+   - **Expected Audio:** Plays computer-generated audio synthesized from the uploaded MusicXML score for the selected measure range.
+
+   Both players provide native browser playback controls, including play, pause, and seeking. Starting either recording automatically pauses the other.
+
+   Reference audio uses the first available valid tempo in this order:
+
+   1. Tempo specified in the MusicXML score.
+   2. Tempo estimated from the analyzed performance when the score does not provide one.
+   3. Default tempo of 120 BPM when neither is available.
+
+   The expected audio player displays the BPM and its source. No additional reference recording or external audio-generation service is required.
+
 6. To test intentional performance errors, start a new practice session using the same score and measure range, then upload one of the provided test recordings:
 
    - `canon_measures_3_6_late_note.wav` — timing error
@@ -202,7 +219,9 @@ Follow the browser workflow:
 
 **Important notation limitation:** The **Annotated Sheet Music** panel currently loads `public/sample_long.musicxml`, **not** the uploaded MusicXML. Its colored noteheads and clickable error descriptions are **frontend mock data** in `src/components/AnnotatedSheetMusic.jsx`, not errors from the current recording. Use the results metrics and feedback tables, rather than that visual panel, to evaluate actual backend analysis.
 
-**Navigation limitation:** The frontend passes the active session in page-navigation state. Refreshing a later workflow page or navigating directly to its URL may lose the currently displayed results; restart at **Start Practice Session** if this occurs.
+**Navigation and audio storage limitations:** The frontend passes the active session and original performance audio through page-navigation state. Refreshing a later workflow page or navigating directly to its URL may lose the displayed results or audio. Original WAV files are not persistently stored in PostgreSQL and are not available for historical playback. Practice session analysis results remain stored in the database.
+
+**Reference audio limitations:** Reference audio is synthesized from parsed note pitches, durations, offsets, and rests using a single resolved tempo. It is intended for practice comparison rather than realistic instrument reproduction or complete reproduction of all MusicXML notation features. Generated reference audio is limited to five minutes.
 
 ## 5. AI practice feedback (optional API demonstration)
 
@@ -249,6 +268,44 @@ npx vitest run
 
 This executes the complete frontend test suite once without entering interactive watch mode.
 
+### Audio playback testing
+
+The reference audio implementation includes tests for pitch synthesis, note duration, rests, selected measure ranges, tempo selection, WAV generation, authenticated API access, and error handling.
+
+From `backend/`, run the targeted backend tests:
+
+```bash
+python -m pytest tests/test_reference_audio.py tests/test_reference_audio_api.py -v
+```
+
+From the repository root, run the targeted frontend tests:
+
+```bash
+npx vitest run src/test/PerformanceResults.test.jsx src/test/PerformanceUpload.test.jsx
+```
+
+To manually generate reference audio examples for Canon in D (measures 3–6) and Minuet in F (measures 1–4), run from `backend/`:
+
+```bash
+python tests/preview_reference_audio.py
+```
+
+The generated WAV files are saved locally in `backend/test_audio/`. These reproducible test artifacts are not required for normal application use.
+
+### Latest regression results
+
+Regression testing completed on November 24, 2026:
+
+| Test suite | Passed | Failed |
+| --- | ---: | ---: |
+| Backend automated tests | 306 | 0 |
+| Frontend automated tests | 155 | 0 |
+| Total | 461 | 0 |
+
+The reference audio module achieved 99% statement coverage. Overall backend statement coverage, including test files, was 98%, measured using `python -m pytest --cov=. --cov-report=term-missing`.
+
+Manual audio playback testing passed for the supplied Canon in D and Minuet in F recordings. The microphone recording and audio transfer pipeline passed automated tests using simulated microphone input. Manual end-to-end live-recording playback verification remains planned.
+
 ## 7. Troubleshooting
 
 | Symptom | What to check |
@@ -270,6 +327,10 @@ This executes the complete frontend test suite once without entering interactive
 | Start Recording fails or the microphone is unavailable | Confirm that a microphone is connected, recognized by the operating system, and not blocked by privacy settings. Use a modern browser that supports `getUserMedia`, Web Audio, and AudioWorklet. Access the application through `http://localhost:5173`, which is treated as a trustworthy local origin. |
 | Recording is empty or no audio is captured | Confirm that the correct microphone is selected and functioning. Record an audible passage before clicking **Stop Recording**. Empty recordings are rejected; retry the recording or upload an existing WAV file instead. |
 | Recorded audio uploads but analysis fails | Play the audio preview to confirm that sound was captured. Check that the recording matches the uploaded MusicXML score and selected measure range. Inspect the backend terminal for analysis errors. |
+| Original performance audio is unavailable | Start a new practice session and upload or record a performance. Original WAV files are retained during the active results workflow but are not persistently stored. |
+| Expected audio fails to generate | Confirm that the backend is running, the session has been analyzed, and the selected measure range contains playable notes. Check the displayed error and backend logs. |
+| Expected audio tempo differs from the recording | Check the displayed tempo source. The score tempo takes priority over the estimated performance tempo. |
+| Expected audio sounds different from the original instrument | Expected audio uses synthesized tones for pitch and rhythm comparison rather than realistic instrument reproduction. |
 | AI feedback has generic text | Ollama may be unavailable and the deterministic fallback may have been used; inspect the backend log. |
 | Annotated notation or colored errors do not match the upload | Expected for this revision: the notation and its highlights are mock/demo data. |
 | A results page goes blank after refresh | Start a new session from the dashboard; results are passed between frontend pages through navigation state. |
@@ -287,14 +348,16 @@ Capstone-894---Personal-Use/
 ├── package-lock.json
 ├── src/
 │   ├── pages/
-│   │   └── PerformanceUpload.jsx     # WAV upload and microphone recording
+│   │   ├── PerformanceUpload.jsx     # WAV upload and microphone recording
+│   │   └── PerformanceResults.jsx    # Analysis results and audio playback
 │   ├── utils/
-│   │   └── audioRecording.js         # WAV encoding utility
+│   │   └── audioRecording.js          # WAV encoding utility
 │   ├── test/
-│   │   └── PerformanceUpload.test.jsx # Recording and upload tests
+│   │   ├── PerformanceUpload.test.jsx # Recording and upload tests
+│   │   └── PerformanceResults.test.jsx # Results and playback tests
 │   └── components/                   # Frontend components
 ├── public/
-│   └── audio-recorder-worklet.js     # Browser microphone audio capture
+│   └── audio-recorder-worklet.js      # Browser microphone audio capture
 ├── backend/
 │   ├── main.py                       # FastAPI application
 │   ├── auth.py                       # Login, sign-up, and Google sign-in
@@ -303,11 +366,15 @@ Capstone-894---Personal-Use/
 │   ├── .env.example                  # Configuration template
 │   ├── requirements.txt              # Python dependencies
 │   ├── music_analysis/               # Audio analysis and AI feedback
+│   │   └── reference_audio.py        # Reference synthesis and tempo selection
 │   ├── migrations/                   # Database migration scripts
 │   ├── test_music/
 │   │   ├── Canon_in_D/               # MusicXML, PDF, MP3, WAV samples
 │   │   └── Minuet_in_F/              # MusicXML, PDF, MP3, WAV samples
 │   └── tests/                        # Backend automated tests
+│       ├── test_reference_audio.py   # Reference synthesis unit tests
+│       ├── test_reference_audio_api.py # Reference audio API tests
+│       └── preview_reference_audio.py # Manual reference audio generation
 └── .github/
     └── workflows/
         └── backend-ci.yml            # Backend CI
@@ -315,12 +382,15 @@ Capstone-894---Personal-Use/
 
 ### Current scope and limitations
 
-- **Integrated browser workflow:** Create a practice session, upload a MusicXML score, select measures, upload an existing WAV recording or record audio through the microphone, and review performance analysis results.
+- **Integrated browser workflow:** Create a practice session, upload a MusicXML score, select measures, upload an existing WAV recording or record audio through the microphone, and review performance analysis results with audio comparison.
 - **Microphone recording:** The browser captures audio, converts it into a WAV file, provides an audio preview, and submits it through the existing performance-analysis API.
 - **Performance analysis:** The backend calculates pitch, rhythm, tempo, and note-sequence accuracy and provides note-level feedback and detected performance errors.
+- **Audio playback:** Users can compare their original performance recording with computer-generated reference audio for the selected measure range.
+- **Reference audio generation:** The backend synthesizes WAV audio from parsed MusicXML notes and rests through the authenticated `GET /sessions/{session_id}/reference-audio?start_measure=3&end_measure=6` endpoint. Tempo is obtained from the score, estimated from the analyzed performance, or set to 120 BPM as a fallback.
+- **Practice history:** Authenticated users can retrieve their previously analyzed practice sessions and stored performance results through the backend API. Historical playback of original recordings is not supported.
 - **Optional AI feedback:** Personalized practice recommendations are available through the backend API using local Ollama, with deterministic fallback feedback when the model is unavailable.
 - **Annotated sheet music:** The current README identifies this visualization as demonstration data rather than a dynamically annotated rendering of the uploaded score. This limitation should be verified against the latest frontend implementation.
 - **User accounts:** Users sign up and log in with an email and password, or with Google when a Google OAuth client ID is configured. Each practice session belongs to the user who created it, and users can only open their own sessions.
 - **Local installation:** The application runs locally and requires a PostgreSQL database. No hosted deployment or preconfigured database is included.
 
-The README was updated on **November 23, 2026**, following implementation and verification of US-06 microphone recording. The frontend regression suite passed all 118 tests, and microphone recording was successfully validated through manual user acceptance testing.
+The README was updated on **November 24, 2026**, following implementation and verification of performance audio playback, MusicXML-based reference audio generation, and additional practice history testing. The full regression suites passed all 306 backend tests and 155 frontend tests. Reference audio playback was manually verified using Canon in D and Minuet in F sample recordings.

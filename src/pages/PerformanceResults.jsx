@@ -1,6 +1,6 @@
-
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { authFetch } from "../auth.js";
 import AnnotatedSheetMusic from '../components/AnnotatedSheetMusic'
 
 function PerformanceResults() {
@@ -47,6 +47,135 @@ function PerformanceResults() {
   const audioResult = location.state?.audioResult
   const startMeasure = location.state?.startMeasure
   const endMeasure = location.state?.endMeasure
+
+  const performanceAudioFile = location.state?.performanceAudioFile;
+
+  const [performanceAudioUrl, setPerformanceAudioUrl] = useState(null);
+  const [referenceAudioUrl, setReferenceAudioUrl] = useState(null);
+  const [referenceAudioLoading, setReferenceAudioLoading] = useState(false);
+  const [referenceAudioError, setReferenceAudioError] = useState("");
+  const [referenceAudioMetadata, setReferenceAudioMetadata] = useState(null);
+
+  const performanceAudioRef = useRef(null);
+  const referenceAudioRef = useRef(null);
+
+  useEffect(() => {
+    if (!performanceAudioFile) {
+      setPerformanceAudioUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(performanceAudioFile);
+
+    setPerformanceAudioUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [performanceAudioFile]);
+
+  useEffect(() => {
+    if (!sessionId || startMeasure == null || endMeasure == null) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    let objectUrl = null;
+    let cancelled = false;
+
+    async function loadReferenceAudio() {
+      setReferenceAudioLoading(true);
+      setReferenceAudioError("");
+      setReferenceAudioUrl(null);
+      setReferenceAudioMetadata(null);
+
+      try {
+        const params = new URLSearchParams({
+          start_measure: String(startMeasure),
+          end_measure: String(endMeasure),
+        });
+
+        const response = await authFetch(
+          `/sessions/${sessionId}/reference-audio?${params}`,
+          {
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+
+          throw new Error(
+            typeof errorData.detail === "string"
+              ? errorData.detail
+              : "Unable to generate expected audio."
+          );
+        }
+
+        const audioBlob = await response.blob();
+
+        if (cancelled) {
+          return;
+        }
+
+        objectUrl = URL.createObjectURL(audioBlob);
+
+        setReferenceAudioUrl(objectUrl);
+
+        setReferenceAudioMetadata({
+          tempoBpm: response.headers.get("X-Tempo-BPM"),
+          tempoSource: response.headers.get("X-Tempo-Source"),
+          duration: response.headers.get("X-Audio-Duration"),
+        });
+      } catch (error) {
+        if (!cancelled && error.name !== "AbortError") {
+          setReferenceAudioError(
+            error.message || "Unable to load expected audio."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setReferenceAudioLoading(false);
+        }
+      }
+    }
+
+    loadReferenceAudio();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [sessionId, startMeasure, endMeasure]);
+
+  function handlePerformancePlay() {
+    referenceAudioRef.current?.pause();
+  }
+
+  function handleReferencePlay() {
+    performanceAudioRef.current?.pause();
+  }
+
+  function getReferenceTempoLabel(source) {
+    switch (source) {
+      case "score":
+        return "Specified in the score";
+
+      case "performance":
+        return "Estimated from your performance";
+
+      case "default":
+        return "Default tempo";
+
+      default:
+        return "";
+    }
+  }
 
   // Note-level feedback
   const noteFeedback = audioResult?.note_feedback ?? []
@@ -633,29 +762,89 @@ function PerformanceResults() {
             )}
           </div>
 
-          {/* RIGHT COLUMN - DISPLAY OPTIONS */}
+          {/* RIGHT COLUMN - REVIEW TOOLS */}
           <div className="performance-results-column performance-options-column">
-            <h2>Display Options</h2>
+            <h2>Audio Review</h2>
 
             <h3 className="performance-options-label">
               Playback Controls
             </h3>
 
             <div className="performance-display-options">
-              <button type="button" disabled>
-                <span aria-hidden="true">▶</span>
-                Play Performance
-              </button>
+              <div className="performance-audio-card">
+                <h4>Your Performance</h4>
 
-              <button type="button" disabled>
-                <span aria-hidden="true">♫</span>
-                Expected Audio
-              </button>
+                <p className="performance-audio-description">
+                  Measures {startMeasure}–{endMeasure}
+                  {" · Recorded audio"}
+                </p>
+
+                {performanceAudioUrl ? (
+                  <audio
+                    ref={performanceAudioRef}
+                    src={performanceAudioUrl}
+                    controls
+                    preload="metadata"
+                    onPlay={handlePerformancePlay}
+                    aria-label="Your performance audio"
+                  />
+                ) : (
+                  <p className="performance-audio-message">
+                    Original performance audio is unavailable.
+                  </p>
+                )}
+              </div>
+
+              <div className="performance-audio-card">
+                <h4>Expected Audio</h4>
+
+                <p className="performance-audio-description">
+                  Measures {startMeasure}–{endMeasure}
+                  {" · Computer-generated audio"}
+                </p>
+
+                {referenceAudioLoading ? (
+                  <p
+                    className="performance-audio-message"
+                    role="status"
+                  >
+                    Generating expected audio...
+                  </p>
+                ) : referenceAudioError ? (
+                  <p
+                    className="performance-audio-error"
+                    role="alert"
+                  >
+                    {referenceAudioError}
+                  </p>
+                ) : referenceAudioUrl ? (
+                  <>
+                    <audio
+                      ref={referenceAudioRef}
+                      src={referenceAudioUrl}
+                      controls
+                      preload="metadata"
+                      onPlay={handleReferencePlay}
+                      aria-label="Expected reference audio"
+                    />
+
+                    {referenceAudioMetadata?.tempoBpm && (
+                      <p className="performance-audio-tempo">
+                        Tempo: {referenceAudioMetadata.tempoBpm} BPM
+                        {" · "}
+                        {getReferenceTempoLabel(
+                          referenceAudioMetadata.tempoSource
+                        )}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="performance-audio-message">
+                    Expected audio is unavailable.
+                  </p>
+                )}
+              </div>
             </div>
-
-            <p className="performance-options-note">
-              Audio playback will be available in a future sprint.
-            </p>
 
             {/* Color key for errors */}
             <div className="performance-legend">

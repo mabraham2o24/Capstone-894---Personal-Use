@@ -3798,3 +3798,50 @@
   font-size: 0.95rem;
   line-height: 1.6;
 }
+
+/* Performance and reference audio playback */
+
+.performance-audio-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.performance-audio-card h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.performance-audio-card audio {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  margin: 10px 0;
+}
+
+.performance-audio-description,
+.performance-audio-tempo,
+.performance-audio-message {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 6px 0;
+}
+
+.performance-audio-error {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b91c1c;
+  margin: 6px 0;
+}
+
+.performance-display-options:has(.performance-audio-card) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
