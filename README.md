@@ -71,11 +71,12 @@ JWT_SECRET=<random value of at least 32 characters>
 
 The repository's `.env.example` shows a **remote/shared PostgreSQL example** with `sslmode=require`. For a standard local PostgreSQL installation, use the local URL above and omit that shared-server SSL setting. Database configuration is read using `python-dotenv` from `backend/database.py`. **Never commit `.env`, passwords, or database connection secrets.**
 
-On startup, `backend/main.py` calls `Base.metadata.create_all(bind=engine)` to create any missing mapped tables. This works for a **new database**, but it does **not** add missing columns to an existing table. For an older VMI database, run the included migrations in order (from the repository root): `001` adds the AI-feedback/analysis columns, and `002` adds user login and links practice sessions to users.
+On startup, `backend/main.py` calls `Base.metadata.create_all(bind=engine)` to create any missing mapped tables. This works for a **new database**, but it does **not** add missing columns to an existing table. For an older VMI database, run the included migrations in order (from the repository root): `001` adds the AI-feedback/analysis columns, `002` adds user login and links practice sessions to users, and `003` stores each session's uploaded score for the Annotated Sheet Music view.
 
 ```bash
 psql -U vmi_user -h localhost -d vmi_dev -f backend/migrations/001_add_ai_feedback_columns.sql
 psql -U vmi_user -h localhost -d vmi_dev -f backend/migrations/002_add_user_login.sql
+psql -U vmi_user -h localhost -d vmi_dev -f backend/migrations/003_add_score_musicxml.sql
 ```
 
 You will be prompted for the password. These migrations are typically unnecessary for a fresh database because the current model creates the columns. Both are safe to rerun. See `backend/migrations/README.md` for more detail.
@@ -318,6 +319,7 @@ Manual audio playback testing passed for the supplied Canon in D and Minuet in F
 | Score upload fails | Select a supported `.xml`, `.musicxml`, or `.mxl` file; try the included `canon-in-d.mxl`. |
 | Login or sign-up fails with a server error mentioning `JWT_SECRET` | Add a `JWT_SECRET` of at least 32 characters to `backend/.env` (see [E. Configure login](#e-configure-login)) and restart the backend. |
 | `column practice_sessions.user_id does not exist` | The database predates login. Apply `backend/migrations/002_add_user_login.sql`. |
+| `column practice_sessions.score_musicxml does not exist` | The database predates stored score files. Apply `backend/migrations/003_add_score_musicxml.sql`. |
 | **Sign in with Google** button is missing | Set `VITE_GOOGLE_CLIENT_ID` in the root `.env` and restart `npm run dev`. Email and password login works without it. |
 | Google shows "Access blocked" or an origin error | Open the site at `http://localhost:5173` (not `127.0.0.1`), confirm both JavaScript origins are listed for the OAuth client, and add the Google account as a test user. New origins can take a few minutes to take effect. |
 | "This account uses Google sign-in" | The account was created with Google and has no password. Use **Sign in with Google**. |

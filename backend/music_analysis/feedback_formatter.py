@@ -1,5 +1,24 @@
 from music_analysis.timing_analysis import classify_note_length
 
+
+# Fields that locate an expected note in the score, used to annotate
+# the rendered sheet music.
+NOTE_LOCATION_FIELDS = (
+    "note_id",
+    "part_index",
+    "offset_in_measure",
+    "midi",
+)
+
+
+def _note_location(expected_event):
+    """Return the score-location fields present on an expected note."""
+    return {
+        field: expected_event[field]
+        for field in NOTE_LOCATION_FIELDS
+        if field in expected_event
+    }
+
 def format_note_feedback(expected_events, analysis):
     """
     Convert detailed performance analysis into musician-friendly
@@ -96,6 +115,7 @@ def format_note_feedback(expected_events, analysis):
                     if timing_result
                     else None
                 ),
+                **_note_location(expected),
             })
 
             expected_index += 1
@@ -145,6 +165,7 @@ def format_note_feedback(expected_events, analysis):
                         "local_quiet_duration"
                     )
                 ),
+                **_note_location(expected_event),
             })
 
             expected_index += 1

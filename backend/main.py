@@ -43,6 +43,8 @@ from music_analysis.performance_summary import generate_performance_summary
 
 from music_analysis.ai_feedback import generate_ai_feedback
 from music_analysis.reference_audio import generate_reference_audio
+from music_analysis.score_annotations import build_score_annotations
+from music_analysis.score_files import read_musicxml_bytes
 
 app = FastAPI(title="Virtual Music Instructor - Backend Prototype")
 
@@ -183,6 +185,9 @@ def get_session(
         "performance_summary": session.performance_summary,
         "note_feedback": summary.get("note_feedback", []),
         "problem_areas": summary.get("problem_areas", []),
+        "score_annotations": build_score_annotations(
+            summary.get("note_feedback", [])
+        ),
         "ai_feedback": session.ai_feedback,
         "created_at": session.created_at,
     }
@@ -232,6 +237,9 @@ async def upload_score(
         notes_info["expected_notes"] = expected_notes
         notes_info["tempo_bpm"] = extract_tempo(tmp_path)
 
+        # Keep the score itself so the frontend can render it.
+        score_musicxml = read_musicxml_bytes(tmp_path, suffix)
+
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not parse MusicXML file: {exc}")
     finally:
@@ -239,6 +247,7 @@ async def upload_score(
 
     session.score_filename = file.filename
     session.score_summary = notes_info
+    session.score_musicxml = score_musicxml
     session.status = "score_uploaded"
 
     db.commit()
@@ -250,6 +259,31 @@ async def upload_score(
         "status": session.status,
         "summary": notes_info,
     }
+
+@app.get("/sessions/{session_id}/score")
+def get_score(
+    session_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Return the session's uploaded score as plain MusicXML, for the
+    Annotated Sheet Music view. Compressed .mxl uploads are returned
+    uncompressed.
+    """
+    session = get_user_session(db, session_id, user)
+
+    if session.score_musicxml is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No score file is stored for this session.",
+        )
+
+    return Response(
+        content=session.score_musicxml,
+        media_type="application/vnd.recordare.musicxml+xml",
+    )
+
 
 @app.post("/sessions/{session_id}/upload-audio")
 async def upload_audio(
@@ -414,6 +448,7 @@ async def upload_audio(
         "performance_analysis": performance_analysis,
         "note_feedback": note_feedback,
         "problem_areas": problem_areas,
+        "score_annotations": build_score_annotations(note_feedback),
         "performance_summary": performance_summary,
         "ai_feedback": session.ai_feedback,
     }

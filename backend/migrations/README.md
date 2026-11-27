@@ -42,3 +42,22 @@ psql -U postgres -d vmi_dev -f backend/migrations/002_add_user_login.sql
 
 Practice sessions created before this migration have no owner, so they
 are not visible to any logged-in user.
+
+## Score File Migration
+
+File: 003_add_score_musicxml.sql
+
+This migration adds a score_musicxml field to practice_sessions. It
+stores the uploaded score as plain MusicXML so the frontend can render
+it in the Annotated Sheet Music view (GET /sessions/{session_id}/score).
+
+Apply it before running a version of the backend that stores score
+files. Without it, practice-session requests fail because the
+score_musicxml column is missing.
+
+From the project root, run:
+
+psql -U postgres -d vmi_dev -f backend/migrations/003_add_score_musicxml.sql
+
+Sessions whose score was uploaded before this migration have no stored
+file, so their sheet music cannot be displayed.

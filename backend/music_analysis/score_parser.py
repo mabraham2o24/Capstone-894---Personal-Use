@@ -91,7 +91,14 @@ def extract_note_details(file_path, part_index=0):
 
     Returns:
         List of dictionaries containing pitch, duration, offset,
-        measure, and beat.
+        measure, and beat, plus fields that locate each note in the
+        score for annotations:
+            - part_index: the part the note belongs to
+            - offset_in_measure: start of the note within its measure,
+              in quarter notes (unlike beat, independent of the time
+              signature)
+            - midi: MIDI pitch number, so enharmonic spellings match
+            - note_id: identifier unique within the returned list
     """
 
     score = converter.parse(file_path)
@@ -105,6 +112,7 @@ def extract_note_details(file_path, part_index=0):
     part = score.parts[part_index]
 
     note_details = []
+    used_note_ids = set()
 
     for measure in part.getElementsByClass("Measure"):
         measure_offset = float(measure.offset)
@@ -113,6 +121,14 @@ def extract_note_details(file_path, part_index=0):
             if element.isNote:
                 offset_in_measure = float(
                     element.getOffsetInHierarchy(measure)
+                )
+
+                note_id = _unique_note_id(
+                    part_index,
+                    measure.number,
+                    offset_in_measure,
+                    element.pitch.nameWithOctave,
+                    used_note_ids,
                 )
 
                 note_details.append(
@@ -128,10 +144,38 @@ def extract_note_details(file_path, part_index=0):
                             if element.beat is not None
                             else None
                         ),
+                        "part_index": part_index,
+                        "offset_in_measure": round(offset_in_measure, 4),
+                        "midi": element.pitch.midi,
+                        "note_id": note_id,
                     }
                 )
 
     return note_details
+
+
+def _unique_note_id(part_index, measure, offset_in_measure, pitch, used):
+    """
+    Build a readable note identifier such as "p0_m4_q1.0_A4".
+
+    The same pitch can start at the same position in two voices, so a
+    repeated identifier gets a "-2", "-3", ... suffix.
+    """
+    base = (
+        f"p{part_index}_m{measure}_"
+        f"q{round(offset_in_measure, 4)}_{pitch}"
+    )
+
+    note_id = base
+    count = 1
+
+    while note_id in used:
+        count += 1
+        note_id = f"{base}-{count}"
+
+    used.add(note_id)
+
+    return note_id
 
 
 def extract_tempo(file_path):

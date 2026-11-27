@@ -11,7 +11,7 @@ will be added as US-05 onward come online.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, LargeBinary, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from database import Base
@@ -55,6 +55,10 @@ class PracticeSession(Base):
     # Populated once a MusicXML score has been uploaded (US-02/US-03/US-04)
     score_filename = Column(String, nullable=True)
     score_summary = Column(JSON, nullable=True)  # notes/measures/tempo, etc.
+
+    # The uploaded score as plain (uncompressed) MusicXML, so the
+    # frontend can render it with performance annotations.
+    score_musicxml = Column(LargeBinary, nullable=True)
 
     # Populated once a performance audio file has been uploaded and analyzed
     # (US-05/US-07/US-08)
