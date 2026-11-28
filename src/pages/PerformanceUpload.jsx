@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { encodeWav } from '../utils/audioRecording.js'
@@ -25,11 +24,21 @@ function PerformanceUpload() {
   const [audioMessage, setAudioMessage] = useState('')
   const [audioLoading, setAudioLoading] = useState(false)
 
-
   // US-06: Microphone recording state.
   const [isRecording, setIsRecording] = useState(false)
   const [recordingLoading, setRecordingLoading] = useState(false)
   const [recordingUrl, setRecordingUrl] = useState(null)
+
+  // US-06: Custom recording audio player state.
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(1)
+  const [isMuted, setIsMuted] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
+
+  // Reference to the custom audio player.
+  const recordingAudioRef = useRef(null)
 
   // References to active browser audio resources.
   const audioContextRef = useRef(null)
@@ -50,6 +59,7 @@ function PerformanceUpload() {
       processorRef.current.port.close()
       processorRef.current.disconnect()
     }
+
     sourceRef.current?.disconnect()
 
     streamRef.current?.getTracks().forEach((track) => {
@@ -65,7 +75,7 @@ function PerformanceUpload() {
     streamRef.current = null
     audioContextRef.current = null
   }
-  
+
   // Release microphone resources when leaving the page.
   useEffect(() => {
     return () => {
@@ -99,6 +109,160 @@ function PerformanceUpload() {
     }
   }, [])
 
+  // US-06: Apply the selected volume and mute settings
+  // whenever a new recording is loaded.
+  useEffect(() => {
+    const audio = recordingAudioRef.current
+
+    if (audio) {
+      audio.volume = volume
+      audio.muted = isMuted
+    }
+  }, [recordingUrl, volume, isMuted])
+
+  // Reset the custom audio player for a new recording
+  // or when the current recording is discarded.
+  const resetRecordingPlayer = () => {
+    const audio = recordingAudioRef.current
+
+    if (audio) {
+      audio.pause()
+      audio.currentTime = 0
+    }
+
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+    setPlaybackError('')
+  }
+
+  // Convert playback time into minutes and seconds.
+  const formatAudioTime = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return '0:00'
+    }
+
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = Math.floor(seconds % 60)
+
+    return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`
+  }
+
+  // Play or pause the recorded performance.
+  const handlePlaybackToggle = async () => {
+    const audio = recordingAudioRef.current
+
+    if (!audio) return
+
+    setPlaybackError('')
+
+    try {
+      if (audio.paused) {
+        if (audio.ended) {
+          audio.currentTime = 0
+        }
+
+        await audio.play()
+      } else {
+        audio.pause()
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setIsPlaying(false)
+        setPlaybackError(
+          'Unable to play the recording. Please try again.'
+        )
+      }
+    }
+  }
+
+  // Update the playback position as the audio plays.
+  const handlePlaybackTimeUpdate = () => {
+    const audio = recordingAudioRef.current
+
+    if (audio) {
+      setCurrentTime(audio.currentTime)
+    }
+  }
+
+  // Retrieve the recording duration.
+  const handleAudioMetadata = () => {
+    const audio = recordingAudioRef.current
+
+    if (audio) {
+      setDuration(
+        Number.isFinite(audio.duration)
+          ? audio.duration
+          : 0
+      )
+    }
+  }
+
+  // Allow the user to seek to a different playback position.
+  const handlePlaybackSeek = (event) => {
+    const audio = recordingAudioRef.current
+    const newTime = Number(event.target.value)
+
+    if (
+      !audio ||
+      !Number.isFinite(newTime) ||
+      duration <= 0
+    ) {
+      return
+    }
+
+    const safeTime = Math.min(
+      Math.max(newTime, 0),
+      duration
+    )
+
+    audio.currentTime = safeTime
+    setCurrentTime(safeTime)
+  }
+
+  // Adjust recording playback volume.
+  const handleVolumeChange = (event) => {
+    const newVolume = Number(event.target.value)
+
+    setVolume(newVolume)
+    setIsMuted(newVolume === 0)
+  }
+
+  // Mute or unmute recording playback.
+  const handleMuteToggle = () => {
+    if (isMuted || volume === 0) {
+      if (volume === 0) {
+        setVolume(1)
+      }
+
+      setIsMuted(false)
+    } else {
+      setIsMuted(true)
+    }
+  }
+
+  // Update playback state when the recording finishes.
+  const handlePlaybackEnded = () => {
+    setIsPlaying(false)
+
+    const audio = recordingAudioRef.current
+
+    if (audio) {
+      setCurrentTime(audio.currentTime)
+    }
+  }
+
+  // Calculate the filled portion of the playback progress bar.
+  const playbackProgress =
+    duration > 0
+      ? Math.min(
+          Math.max((currentTime / duration) * 100, 0),
+          100
+        )
+      : 0
+
+  // Calculate the filled portion of the volume slider.
+  const volumeProgress = isMuted ? 0 : volume * 100
 
   // Request microphone access and begin capturing samples.
   const handleStartRecording = async () => {
@@ -132,7 +296,6 @@ function PerformanceUpload() {
 
       await audioContext.resume()
 
-      
       // Load the AudioWorklet processor.
       await audioContext.audioWorklet.addModule(
         '/audio-recorder-worklet.js'
@@ -161,13 +324,16 @@ function PerformanceUpload() {
         samplesRef.current.push(event.data.samples)
       }
 
+      // Reset playback before starting another recording.
+      resetRecordingPlayer()
+
       // Connect the microphone to the processor.
       // The processor produces silence at its output.
       recordingActiveRef.current = true
-      
+
       source.connect(processor)
       processor.connect(audioContext.destination)
-     
+
       setIsRecording(true)
       setAudioFile(null)
 
@@ -253,6 +419,9 @@ function PerformanceUpload() {
 
       const url = URL.createObjectURL(file)
 
+      // Reset the playback controls for the new recording.
+      resetRecordingPlayer()
+
       if (recordingUrlRef.current) {
         URL.revokeObjectURL(recordingUrlRef.current)
       }
@@ -273,6 +442,9 @@ function PerformanceUpload() {
 
   // Discard the captured recording.
   const handleDiscardRecording = () => {
+    // Stop playback and reset the custom audio player.
+    resetRecordingPlayer()
+
     if (recordingUrlRef.current) {
       URL.revokeObjectURL(recordingUrlRef.current)
       recordingUrlRef.current = null
@@ -414,7 +586,8 @@ function PerformanceUpload() {
         <h1>Add Your Performance</h1>
 
         <p className="subtitle">
-          Upload a WAV recording of your performance.
+          Record your performance using your microphone or
+          upload an existing WAV recording.
         </p>
 
         {/* Shows which practice session, score, and
@@ -443,58 +616,416 @@ function PerformanceUpload() {
 
         {/* US-06: Record a performance using the microphone. */}
         <div className="recording-section">
-          <h2>Record Your Performance</h2>
 
-          <p>
-            Record your performance using your microphone,
-            or upload an existing WAV file below.
-          </p>
+          {/* Microphone recording section heading. */}
+          <div className="recording-section-header">
+            <h2>Record Your Performance</h2>
 
+            <p className="recording-description">
+              Record your performance using your microphone,
+              or upload an existing WAV file below.
+            </p>
+          </div>
+
+          {/* Recording controls. */}
           <div className="recording-controls">
             {!isRecording ? (
               <button
                 type="button"
+                className="recording-start-button"
                 onClick={handleStartRecording}
                 disabled={recordingLoading || audioLoading}
               >
-                {recordingLoading
-                  ? 'Preparing Microphone...'
-                  : 'Start Recording'}
+                {/* Microphone icon. */}
+                <svg
+                  className="recording-button-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="9"
+                    y="2"
+                    width="6"
+                    height="12"
+                    rx="3"
+                  />
+                  <path d="M5 10v2a7 7 0 0 0 14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                  <line x1="8" y1="22" x2="16" y2="22" />
+                </svg>
+
+                <span>
+                  {recordingLoading
+                    ? 'Preparing Recording...'
+                    : 'Start Recording'}
+                </span>
               </button>
             ) : (
               <button
                 type="button"
+                className="recording-stop-button"
                 onClick={handleStopRecording}
                 disabled={audioLoading}
               >
-                Stop Recording
+                {/* Stop recording icon. */}
+                <svg
+                  className="recording-button-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="6"
+                    y="6"
+                    width="12"
+                    height="12"
+                    rx="2"
+                  />
+                </svg>
+
+                <span>Stop Recording</span>
               </button>
             )}
           </div>
 
+          {/* Recording in progress status indicator. */}
           {isRecording && (
-            <p role="status">Recording in progress...</p>
+            <div
+              className="recording-status"
+              role="status"
+            >
+              <span
+                className="recording-status-dot"
+                aria-hidden="true"
+              />
+
+              <span>Recording in progress...</span>
+            </div>
           )}
 
+          {/* Completed recording and audio preview. */}
           {recordingUrl && (
             <div className="recording-preview">
+
+              {/* Successful recording status indicator. */}
+              <div
+                className="recording-complete-status"
+                role="status"
+              >
+                <svg
+                  className="recording-complete-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m8 12 3 3 5-6" />
+                </svg>
+
+                <span>Recording Complete</span>
+              </div>
+
               <h3>Recording Preview</h3>
 
-              <audio controls src={recordingUrl}>
-                Your browser does not support audio playback.
-              </audio>
+              <p className="recording-preview-description">
+                Listen to your recorded performance before
+                submitting it for analysis.
+              </p>
 
+              {/* US-06: Custom recording audio player. */}
+              <div className="recording-custom-player">
+
+                {/* Hidden native audio element.
+                    Playback is controlled by the custom UI. */}
+                <audio
+                  ref={recordingAudioRef}
+                  className="recording-hidden-audio"
+                  src={recordingUrl}
+                  preload="metadata"
+                  onLoadedMetadata={handleAudioMetadata}
+                  onDurationChange={handleAudioMetadata}
+                  onTimeUpdate={handlePlaybackTimeUpdate}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onEnded={handlePlaybackEnded}
+                  onError={() => {
+                    setIsPlaying(false)
+                    setPlaybackError(
+                      'Unable to load the recorded audio.'
+                    )
+                  }}
+                />
+
+                {/* Recording file information. */}
+                <div className="recording-player-header">
+
+                  <div
+                    className="recording-player-file-icon"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="26"
+                      height="26"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2 10v4" />
+                      <path d="M6 6v12" />
+                      <path d="M10 3v18" />
+                      <path d="M14 7v10" />
+                      <path d="M18 5v14" />
+                      <path d="M22 10v4" />
+                    </svg>
+                  </div>
+
+                  <div className="recording-player-file-info">
+                    <strong>Your Recorded Performance</strong>
+                    <span>recorded_performance.wav</span>
+                  </div>
+
+                  <span className="recording-player-format">
+                    WAV
+                  </span>
+                </div>
+
+                {/* Main playback controls. */}
+                <div className="recording-player-main">
+
+                  {/* Play and Pause button. */}
+                  <button
+                    type="button"
+                    className="recording-player-play-button"
+                    onClick={handlePlaybackToggle}
+                    aria-label={
+                      isPlaying
+                        ? 'Pause recording'
+                        : 'Play recording'
+                    }
+                    title={
+                      isPlaying
+                        ? 'Pause recording'
+                        : 'Play recording'
+                    }
+                  >
+                    {isPlaying ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="6"
+                          y="4"
+                          width="4"
+                          height="16"
+                          rx="1"
+                        />
+                        <rect
+                          x="14"
+                          y="4"
+                          width="4"
+                          height="16"
+                          rx="1"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 5.5v13l11-6.5z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Seekable playback progress bar. */}
+                  <div className="recording-player-timeline">
+                    <input
+                      type="range"
+                      className="recording-player-progress"
+                      min="0"
+                      max={duration || 0}
+                      step="0.01"
+                      value={Math.min(currentTime, duration)}
+                      onChange={handlePlaybackSeek}
+                      disabled={duration <= 0}
+                      aria-label="Recording playback position"
+                      aria-valuetext={`${formatAudioTime(
+                        currentTime
+                      )} of ${formatAudioTime(duration)}`}
+                      style={{
+                        '--recording-progress':
+                          `${playbackProgress}%`,
+                      }}
+                    />
+
+                    {/* Current time and total duration. */}
+                    <div className="recording-player-time">
+                      <span>
+                        {formatAudioTime(currentTime)}
+                      </span>
+
+                      <span>
+                        {formatAudioTime(duration)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Volume and mute controls. */}
+                <div className="recording-player-bottom">
+
+                  <div className="recording-player-volume">
+
+                    <button
+                      type="button"
+                      className="recording-player-volume-button"
+                      onClick={handleMuteToggle}
+                      aria-label={
+                        isMuted || volume === 0
+                          ? 'Unmute recording'
+                          : 'Mute recording'
+                      }
+                      title={
+                        isMuted || volume === 0
+                          ? 'Unmute recording'
+                          : 'Mute recording'
+                      }
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M11 5 6 9H3v6h3l5 4V5z" />
+
+                        {isMuted || volume === 0 ? (
+                          <>
+                            <path d="m16 9 6 6" />
+                            <path d="m22 9-6 6" />
+                          </>
+                        ) : (
+                          <>
+                            <path d="M15 9a4 4 0 0 1 0 6" />
+                            <path d="M18 5a9 9 0 0 1 0 14" />
+                          </>
+                        )}
+                      </svg>
+                    </button>
+
+                    <input
+                      type="range"
+                      className="recording-player-volume-slider"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      aria-label="Recording playback volume"
+                      aria-valuetext={`${Math.round(
+                        (isMuted ? 0 : volume) * 100
+                      )}%`}
+                      style={{
+                        '--recording-volume':
+                          `${volumeProgress}%`,
+                      }}
+                    />
+
+                    <span className="recording-player-volume-value">
+                      {Math.round(
+                        (isMuted ? 0 : volume) * 100
+                      )}%
+                    </span>
+                  </div>
+
+                  <span className="recording-player-duration">
+                    {formatAudioTime(duration)} duration
+                  </span>
+                </div>
+
+                {/* Audio playback error message. */}
+                {playbackError && (
+                  <p
+                    className="recording-player-error"
+                    role="alert"
+                  >
+                    {playbackError}
+                  </p>
+                )}
+              </div>
+
+              {/* Discard the recording and allow another attempt. */}
               <button
                 type="button"
+                className="recording-discard-button"
                 onClick={handleDiscardRecording}
                 disabled={audioLoading}
               >
-                Discard Recording
+                {/* Trash icon. */}
+                <svg
+                  className="recording-button-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+
+                <span>Discard Recording</span>
               </button>
             </div>
           )}
         </div>
 
+        {/* Existing WAV file upload section. */}
         <div className="upload-section">
           <label className="file-label">
             Choose Audio File

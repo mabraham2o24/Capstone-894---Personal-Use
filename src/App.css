@@ -3845,3 +3845,1658 @@
   gap: 12px;
   width: 100%;
 }
+
+/* =========================================
+   US-19 - AI PRACTICE FEEDBACK
+   ========================================= */
+
+.ai-feedback-section {
+  margin-top: 24px;
+  margin-bottom: 24px;
+  padding: 28px;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(15, 23, 42, 0.35)
+  );
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 16px;
+}
+
+.ai-feedback-section > h2 {
+  color: #93c5fd;
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.6rem;
+}
+
+.ai-feedback-section > .subtitle {
+  text-align: center;
+  color: #94a3b8;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+/* Generate AI feedback button */
+
+.ai-feedback-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.ai-feedback-button {
+  width: auto;
+  min-width: 260px;
+  max-width: 100%;
+  padding: 14px 24px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.ai-feedback-button:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.ai-feedback-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 4px;
+}
+
+.ai-feedback-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading indicator */
+
+.ai-feedback-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  color: #93c5fd;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 16px 0;
+}
+
+.ai-feedback-loading::before {
+  content: '';
+  display: inline-block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(147, 197, 253, 0.25);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: ai-feedback-spin 0.8s linear infinite;
+}
+
+@keyframes ai-feedback-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Informational message */
+
+.ai-feedback-message {
+  color: #94a3b8;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 16px 0;
+}
+
+/* Error message */
+
+.ai-feedback-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 10px;
+  padding: 14px 18px;
+  color: #fca5a5;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  text-align: center;
+  margin: 16px 0;
+}
+
+/* Generated feedback content */
+
+.ai-feedback-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 28px;
+  overflow-wrap: anywhere;
+}
+
+/* Overall assessment */
+
+.ai-feedback-assessment {
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 22px;
+}
+
+.ai-feedback-assessment h3 {
+  color: #93c5fd;
+  font-size: 1.15rem;
+  margin: 0 0 12px;
+}
+
+.ai-feedback-assessment p {
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* Recommended practice exercises */
+
+.ai-feedback-recommendations > h3 {
+  color: #f1f5f9;
+  font-size: 1.15rem;
+  margin: 0 0 16px;
+}
+
+.ai-feedback-exercise-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 260px), 1fr)
+  );
+  gap: 18px;
+}
+
+.ai-feedback-exercise-card {
+  min-width: 0;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 0.2s ease;
+}
+
+.ai-feedback-exercise-card:hover {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.ai-feedback-exercise-card h4 {
+  color: #93c5fd;
+  font-size: 1.05rem;
+  margin: 0 0 14px;
+}
+
+.ai-feedback-exercise-card p {
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* Exercise measure and error labels */
+
+.ai-feedback-exercise-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ai-feedback-measure {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: #93c5fd;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ai-feedback-error-type {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* Next-session practice goal */
+
+.ai-feedback-goal {
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-left: 4px solid #60a5fa;
+  border-radius: 12px;
+  padding: 22px;
+}
+
+.ai-feedback-goal h3 {
+  color: #93c5fd;
+  font-size: 1.15rem;
+  margin: 0 0 12px;
+}
+
+.ai-feedback-goal p {
+  color: #e2e8f0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* Responsive design */
+
+@media (max-width: 768px) {
+  .ai-feedback-section {
+    padding: 20px;
+  }
+
+  .ai-feedback-section > h2 {
+    font-size: 1.35rem;
+  }
+
+  .ai-feedback-exercise-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-feedback-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ai-feedback-assessment,
+  .ai-feedback-exercise-card,
+  .ai-feedback-goal {
+    padding: 16px;
+  }
+}
+
+/* Accessibility - reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-feedback-loading::before {
+    animation: none;
+  }
+
+  .ai-feedback-button,
+  .ai-feedback-exercise-card {
+    transition: none;
+  }
+
+  .ai-feedback-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   US-20 - Practice History
+   ========================================================= */
+
+/* Dashboard - practice and history navigation buttons */
+
+.dashboard-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dashboard-history-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 15px 30px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid #3b82f6;
+  border-radius: 10px;
+  color: #93c5fd;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s,
+    border-color 0.2s;
+}
+
+.dashboard-history-button:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: #60a5fa;
+  transform: translateY(-2px);
+}
+
+/* Practice History - main page layout */
+
+.practice-history-page {
+  min-height: 100vh;
+  width: 100%;
+  background: #111318;
+  color: #e2e8f0;
+}
+
+.practice-history-content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 36px 24px 70px;
+  box-sizing: border-box;
+}
+
+/* Back to Dashboard navigation */
+
+.practice-history-navigation {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 28px;
+}
+
+.practice-history-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.practice-history-back-button:hover {
+  background: #293548;
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+/* Practice History - page heading */
+
+.practice-history-header {
+  padding: 36px;
+  margin-bottom: 36px;
+  background: linear-gradient(135deg, #1e293b, #141923);
+  border: 1px solid #334155;
+  border-radius: 20px;
+}
+
+.practice-history-eyebrow {
+  display: inline-block;
+  margin-bottom: 14px;
+  color: #60a5fa;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.practice-history-header h1 {
+  margin: 0 0 12px;
+  color: #ffffff;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1.2;
+}
+
+.practice-history-header p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+/* Loading state */
+
+.practice-history-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px 24px;
+  background: #1b1e25;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  color: #cbd5e1;
+}
+
+.practice-history-loading p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Loading spinner */
+
+.practice-history-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(147, 197, 253, 0.25);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: practice-history-spin 0.8s linear infinite;
+}
+
+@keyframes practice-history-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state */
+
+.practice-history-error {
+  padding: 24px;
+  margin-bottom: 24px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 12px;
+  color: #fca5a5;
+  overflow-wrap: anywhere;
+}
+
+.practice-history-error h2 {
+  margin: 0 0 12px;
+  color: #fca5a5;
+  font-size: 20px;
+}
+
+.practice-history-error p {
+  margin: 8px 0;
+  color: #fecaca;
+  line-height: 1.6;
+}
+
+/* Retry button */
+
+.practice-history-retry-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  margin-top: 12px;
+  background: #991b1b;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.practice-history-retry-button:hover {
+  background: #b91c1c;
+}
+
+/* Empty practice history state */
+
+.practice-history-empty {
+  padding: 56px 28px;
+  background: #1b1e25;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.practice-history-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 24px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 20px;
+  color: #60a5fa;
+  font-size: 40px;
+}
+
+.practice-history-empty h2 {
+  margin: 0 0 14px;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.practice-history-empty p {
+  max-width: 540px;
+  margin: 0 auto 28px;
+  color: #94a3b8;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+/* Start Practice Session button */
+
+.practice-history-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 26px;
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.practice-history-primary-button:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+}
+
+/* Completed practice sessions section */
+
+.practice-history-section {
+  width: 100%;
+}
+
+.practice-history-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.practice-history-section-heading h2 {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.practice-history-section-heading p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Total completed session count */
+
+.practice-history-session-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 20px;
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Practice session card grid */
+
+.practice-history-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 440px), 1fr)
+  );
+  gap: 24px;
+}
+
+/* Individual practice session card */
+
+.practice-history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding: 24px;
+  background: #1b1e25;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  transition: border-color 0.2s;
+}
+
+.practice-history-card:hover {
+  border-color: #475569;
+}
+
+/* Practice session card header */
+
+.practice-history-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.practice-history-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  color: #60a5fa;
+  font-size: 26px;
+}
+
+.practice-history-card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.practice-history-card-title h3 {
+  margin: 0 0 6px;
+  color: #f1f5f9;
+  font-size: 17px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.practice-history-card-title p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Completed session status */
+
+.practice-history-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 20px;
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.practice-history-status::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #4ade80;
+  border-radius: 50%;
+}
+
+/* Performance recording information */
+
+.practice-history-audio-file {
+  padding: 14px 16px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 10px;
+}
+
+.practice-history-audio-file span {
+  display: block;
+  margin-bottom: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.practice-history-audio-file p {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Saved performance metrics grid */
+
+.practice-history-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* Individual performance metric */
+
+.practice-history-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+}
+
+.practice-history-metric span {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.practice-history-metric strong {
+  color: #93c5fd;
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* View saved performance results button */
+
+.practice-history-view-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 20px;
+  margin-top: auto;
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.practice-history-view-button:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-2px);
+}
+
+/* Disabled state while retrieving saved results */
+
+.practice-history-view-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Individual session loading message */
+
+.practice-history-session-loading {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* Accessibility - visible keyboard focus */
+
+.dashboard-history-button:focus-visible,
+.practice-history-back-button:focus-visible,
+.practice-history-primary-button:focus-visible,
+.practice-history-retry-button:focus-visible,
+.practice-history-view-button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 4px;
+}
+
+/* Responsive design - tablets and smaller screens */
+
+@media (max-width: 768px) {
+  .dashboard-action-buttons {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .dashboard-action-buttons .dashboard-primary-button,
+  .dashboard-history-button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .practice-history-content {
+    padding: 24px 16px 48px;
+  }
+
+  .practice-history-header {
+    padding: 26px 22px;
+    margin-bottom: 28px;
+  }
+
+  .practice-history-section-heading {
+    align-items: flex-start;
+  }
+
+  .practice-history-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .practice-history-card {
+    padding: 20px;
+  }
+
+  .practice-history-empty {
+    padding: 40px 20px;
+  }
+
+  .practice-history-primary-button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* Responsive design - mobile screens */
+
+@media (max-width: 480px) {
+  .practice-history-card-header {
+    gap: 10px;
+  }
+
+  .practice-history-card-title h3 {
+    font-size: 15px;
+  }
+
+  .practice-history-metrics {
+    gap: 10px;
+  }
+
+  .practice-history-metric {
+    padding: 12px;
+  }
+
+  .practice-history-metric span {
+    font-size: 12px;
+  }
+
+  .practice-history-metric strong {
+    font-size: 20px;
+  }
+
+  .practice-history-section-heading h2 {
+    font-size: 21px;
+  }
+
+  .practice-history-loading {
+    padding: 28px 16px;
+  }
+
+  .practice-history-status {
+    margin-left: 0;
+  }
+}
+
+/* Accessibility - reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-history-spinner {
+    animation: none;
+  }
+
+  .dashboard-history-button,
+  .practice-history-back-button,
+  .practice-history-primary-button,
+  .practice-history-retry-button,
+  .practice-history-view-button,
+  .practice-history-card {
+    transition: none;
+  }
+
+  .dashboard-history-button:hover,
+  .practice-history-primary-button:hover,
+  .practice-history-view-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   US-06 - RECORD PERFORMANCE
+   Microphone Recording and Audio Preview
+   ========================================================= */
+
+/* Main recording section */
+.performance-card .recording-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 24px 0;
+  padding: 28px 24px;
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  text-align: center;
+}
+
+/* Recording section heading */
+.recording-section-header {
+  width: 100%;
+  text-align: center;
+}
+
+.recording-section-header h2 {
+  margin: 0 0 10px;
+  color: #f1f5f9;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+/* Recording section description */
+.recording-section .recording-description {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* Recording button container */
+.recording-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Shared recording button styles */
+.recording-start-button,
+.recording-stop-button,
+.recording-discard-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+/* Start Recording button */
+.recording-start-button {
+  min-width: 210px;
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  color: #ffffff;
+}
+
+.recording-start-button:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Stop Recording button */
+.recording-stop-button {
+  min-width: 210px;
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #ffffff;
+}
+
+.recording-stop-button:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Recording button icons */
+.recording-button-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Disabled recording buttons */
+.recording-start-button:disabled,
+.recording-stop-button:disabled,
+.recording-discard-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Active recording status */
+.recording-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 20px;
+  color: #fca5a5;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Animated red recording indicator */
+.recording-status-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: recording-status-pulse 1.5s infinite;
+}
+
+@keyframes recording-status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Completed recording preview container */
+.recording-section .recording-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 520px;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+}
+
+/* Recording completion status */
+.recording-complete-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 20px;
+  color: #86efac;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Recording completion icon */
+.recording-complete-icon {
+  display: block;
+  flex-shrink: 0;
+  color: #4ade80;
+}
+
+/* Recording preview heading */
+.recording-preview h3 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Recording preview description */
+.recording-preview .recording-preview-description {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* Recorded performance audio player */
+.recording-audio-player {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: 48px;
+  margin: 4px auto;
+  border-radius: 30px;
+  color-scheme: dark;
+}
+
+/* Discard Recording button */
+.recording-discard-button {
+  padding: 10px 20px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #f87171;
+  font-size: 14px;
+}
+
+.recording-discard-button:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  color: #fca5a5;
+  transform: translateY(-2px);
+}
+
+/* Button press feedback */
+.recording-start-button:active:not(:disabled),
+.recording-stop-button:active:not(:disabled),
+.recording-discard-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Accessibility - visible keyboard focus */
+.recording-start-button:focus-visible,
+.recording-stop-button:focus-visible,
+.recording-discard-button:focus-visible,
+.recording-audio-player:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 4px;
+}
+
+/* Responsive recording layout */
+@media (max-width: 600px) {
+  .performance-card .recording-section {
+    padding: 22px 16px;
+    gap: 18px;
+  }
+
+  .recording-section-header h2 {
+    font-size: 19px;
+  }
+
+  .recording-section .recording-description {
+    font-size: 13px;
+  }
+
+  .recording-start-button,
+  .recording-stop-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .recording-section .recording-preview {
+    padding: 18px 14px;
+  }
+
+  .recording-audio-player {
+    width: 100%;
+  }
+
+  .recording-discard-button {
+    width: 100%;
+  }
+}
+
+/* Accessibility - respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .recording-status-dot {
+    animation: none;
+  }
+
+  .recording-start-button,
+  .recording-stop-button,
+  .recording-discard-button {
+    transition: none;
+  }
+
+  .recording-start-button:hover:not(:disabled),
+  .recording-stop-button:hover:not(:disabled),
+  .recording-discard-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   US-06 - CUSTOM RECORDING AUDIO PLAYER
+   ========================================================= */
+
+/* Main custom audio player container */
+.recording-custom-player {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 20px;
+  background: linear-gradient(
+    145deg,
+    #1e293b,
+    #111827
+  );
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  text-align: left;
+}
+
+/* Hide the native browser audio controls */
+.recording-hidden-audio {
+  display: none;
+}
+
+/* Audio player header */
+.recording-player-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Audio waveform file icon */
+.recording-player-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  color: #60a5fa;
+}
+
+/* Recording filename information */
+.recording-player-file-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+
+.recording-player-file-info strong {
+  color: #f1f5f9;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.recording-player-file-info span {
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* WAV file format indicator */
+.recording-player-format {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 6px;
+  color: #93c5fd;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Main playback controls */
+.recording-player-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Circular Play/Pause button */
+.recording-player-play-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: #3b82f6;
+  border: 1px solid #60a5fa;
+  border-radius: 50%;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.recording-player-play-button:hover {
+  background: #2563eb;
+  box-shadow: 0 5px 18px rgba(59, 130, 246, 0.4);
+  transform: scale(1.06);
+}
+
+.recording-player-play-button:active {
+  transform: scale(0.96);
+}
+
+.recording-player-play-button svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Playback progress and timestamps */
+.recording-player-timeline {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Custom seekable playback progress bar */
+.recording-player-progress {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 6px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(
+    to right,
+    #60a5fa 0%,
+    #60a5fa var(--recording-progress, 0%),
+    #334155 var(--recording-progress, 0%),
+    #334155 100%
+  );
+  cursor: pointer;
+}
+
+/* Playback progress thumb - Chrome, Edge, Safari */
+.recording-player-progress::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #93c5fd;
+  border: 2px solid #dbeafe;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.45);
+  cursor: grab;
+}
+
+/* Playback progress thumb - Firefox */
+.recording-player-progress::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #93c5fd;
+  border: 2px solid #dbeafe;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.45);
+  cursor: grab;
+}
+
+.recording-player-progress:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.recording-player-progress:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.recording-player-progress:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Playback timestamps */
+.recording-player-time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.recording-player-time span {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bottom audio player controls */
+.recording-player-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+/* Volume control container */
+.recording-player-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Volume and mute button */
+.recording-player-volume-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.recording-player-volume-button:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+/* Custom volume slider */
+.recording-player-volume-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 80px;
+  height: 5px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(
+    to right,
+    #60a5fa 0%,
+    #60a5fa var(--recording-volume, 100%),
+    #334155 var(--recording-volume, 100%),
+    #334155 100%
+  );
+  cursor: pointer;
+}
+
+/* Volume slider thumb - Chrome, Edge, Safari */
+.recording-player-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  background: #93c5fd;
+  border: 1px solid #dbeafe;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Volume slider thumb - Firefox */
+.recording-player-volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  background: #93c5fd;
+  border: 1px solid #dbeafe;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Volume percentage */
+.recording-player-volume-value {
+  min-width: 34px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Total recording duration */
+.recording-player-duration {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Playback error message */
+.recording-custom-player .recording-player-error {
+  margin: 0;
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Accessibility - visible keyboard focus */
+.recording-player-play-button:focus-visible,
+.recording-player-volume-button:focus-visible,
+.recording-player-progress:focus-visible,
+.recording-player-volume-slider:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 5px;
+}
+
+/* Responsive custom audio player */
+@media (max-width: 600px) {
+  .recording-custom-player {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .recording-player-header {
+    gap: 10px;
+  }
+
+  .recording-player-file-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .recording-player-file-info strong {
+    font-size: 13px;
+  }
+
+  .recording-player-file-info span {
+    font-size: 11px;
+  }
+
+  .recording-player-main {
+    gap: 12px;
+  }
+
+  .recording-player-play-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .recording-player-bottom {
+    gap: 10px;
+  }
+
+  .recording-player-volume-slider {
+    width: 65px;
+  }
+}
+
+@media (max-width: 380px) {
+  .recording-custom-player {
+    padding: 12px;
+  }
+
+  .recording-player-format {
+    display: none;
+  }
+
+  .recording-player-bottom {
+    justify-content: center;
+  }
+}
+
+/* Accessibility - respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .recording-player-play-button,
+  .recording-player-volume-button {
+    transition: none;
+  }
+
+  .recording-player-play-button:hover,
+  .recording-player-play-button:active {
+    transform: none;
+  }
+}

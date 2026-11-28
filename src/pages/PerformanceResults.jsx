@@ -8,45 +8,102 @@ function PerformanceResults() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Sprint 4 - Temporarily load the longer MusicXML sample.
-  // Backend integration will replace this with the uploaded score.
-  const [musicXML, setMusicXML] = useState('')
+  const sessionId = location.state?.sessionId
+  const scoreResult = location.state?.scoreResult
+  const audioResult = location.state?.audioResult
+
+  // Sprint 4 - Retrieve the uploaded score for this practice session.
+  const [scoreState, setScoreState] = useState(null)
+
+  const currentScore = scoreState?.sessionId === sessionId
+    ? scoreState
+    : null
+
+  const musicXML = currentScore?.xml ?? ''
+  const scoreLoading = Boolean(sessionId && audioResult && !currentScore)
+  const scoreError = currentScore?.error ?? ''
+  const scoreAnnotations = audioResult?.score_annotations ?? null
+  const hasAudioResult = Boolean(audioResult)
 
   useEffect(() => {
+    if (!sessionId || !hasAudioResult) return
+
+    const controller = new AbortController()
     let cancelled = false
 
-    const loadSampleScore = async () => {
+    setScoreState(null)
+
+    const loadScore = async () => {
       try {
-        const response = await fetch('/sample_long.musicxml')
+        const response = await authFetch(
+          `/sessions/${encodeURIComponent(sessionId)}/score`,
+          {
+            signal: controller.signal,
+          }
+        )
+
+        if (response.status === 404) {
+          throw new Error(
+            'The uploaded sheet music is unavailable for this session. Older practice sessions may not have a stored score.'
+          )
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            'You are not authorized to retrieve this sheet music. Please sign in again.'
+          )
+        }
 
         if (!response.ok) {
-          throw new Error('Could not load sample_long.musicxml.')
+          throw new Error(
+            'Unable to retrieve the uploaded sheet music.'
+          )
         }
 
         const xml = await response.text()
 
+        if (!xml.trim()) {
+          throw new Error(
+            'The uploaded sheet music is empty.'
+          )
+        }
+
         if (!cancelled) {
-          setMusicXML(xml)
+          setScoreState({
+            sessionId,
+            xml,
+            error: '',
+          })
         }
       } catch (error) {
-        if (!cancelled) {
-          console.error('Sample MusicXML loading error:', error)
+        if (!cancelled && error.name !== 'AbortError') {
+          setScoreState({
+            sessionId,
+            xml: '',
+            error: error instanceof TypeError
+              ? 'Unable to connect to the backend to retrieve sheet music.'
+              : error.message || 'Unable to load sheet music.',
+          })
         }
       }
     }
 
-    loadSampleScore()
+    loadScore()
 
     return () => {
       cancelled = true
+      controller.abort()
     }
-  }, [])
+  }, [sessionId, hasAudioResult])
 
-  const sessionId = location.state?.sessionId
-  const scoreResult = location.state?.scoreResult
-  const audioResult = location.state?.audioResult
   const startMeasure = location.state?.startMeasure
   const endMeasure = location.state?.endMeasure
+
+  // US-20 - Historical practice session information
+  const isHistoricalSession =
+    location.state?.isHistoricalSession === true
+
+  const practiceDate = location.state?.practiceDate
 
   const performanceAudioFile = location.state?.performanceAudioFile;
 
@@ -56,11 +113,24 @@ function PerformanceResults() {
   const [referenceAudioError, setReferenceAudioError] = useState("");
   const [referenceAudioMetadata, setReferenceAudioMetadata] = useState(null);
 
+  // US-19 - AI Practice Feedback state
+  const [aiFeedback, setAiFeedback] = useState(
+    audioResult?.ai_feedback ?? null
+  )
+  const [aiFeedbackLoading, setAiFeedbackLoading] = useState(false)
+  const [aiFeedbackError, setAiFeedbackError] = useState('')
+
   const performanceAudioRef = useRef(null);
   const referenceAudioRef = useRef(null);
 
+  // US-20 - Load saved AI feedback when the selected session changes.
   useEffect(() => {
-    if (!performanceAudioFile) {
+    setAiFeedback(audioResult?.ai_feedback ?? null)
+    setAiFeedbackError('')
+  }, [sessionId, audioResult])
+
+  useEffect(() => {
+    if (isHistoricalSession || !performanceAudioFile) {
       setPerformanceAudioUrl(null);
       return;
     }
@@ -72,10 +142,20 @@ function PerformanceResults() {
     return () => {
       URL.revokeObjectURL(url);
     };
-  }, [performanceAudioFile]);
+  }, [performanceAudioFile, isHistoricalSession]);
 
   useEffect(() => {
-    if (!sessionId || startMeasure == null || endMeasure == null) {
+    // US-20 - Reference audio is unavailable for historical sessions.
+    if (
+      isHistoricalSession ||
+      !sessionId ||
+      startMeasure == null ||
+      endMeasure == null
+    ) {
+      setReferenceAudioUrl(null);
+      setReferenceAudioLoading(false);
+      setReferenceAudioError("");
+      setReferenceAudioMetadata(null);
       return;
     }
 
@@ -151,7 +231,7 @@ function PerformanceResults() {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [sessionId, startMeasure, endMeasure]);
+  }, [sessionId, startMeasure, endMeasure, isHistoricalSession]);
 
   function handlePerformancePlay() {
     referenceAudioRef.current?.pause();
@@ -183,6 +263,63 @@ function PerformanceResults() {
   // Sprint 3 performance summary
   const performanceSummary = audioResult?.performance_summary
   const metrics = performanceSummary?.metrics
+
+  // US-19 - Generate personalized AI practice feedback
+  const handleGenerateAIFeedback = async () => {
+    // US-20 - Historical sessions only display saved AI feedback.
+    if (
+      isHistoricalSession ||
+      !sessionId ||
+      !performanceSummary ||
+      aiFeedbackLoading
+    ) {
+      return
+    }
+
+    setAiFeedbackLoading(true)
+    setAiFeedbackError('')
+
+    try {
+      const response = await authFetch(
+        `/sessions/${sessionId}/ai-feedback`,
+        {
+          method: 'POST',
+        }
+      )
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data.detail === 'string'
+            ? data.detail
+            : 'Unable to generate AI practice feedback. Please try again.'
+        )
+      }
+
+      if (
+        !data.ai_feedback ||
+        typeof data.ai_feedback.overall_assessment !== 'string' ||
+        !Array.isArray(data.ai_feedback.recommendations) ||
+        typeof data.ai_feedback.next_session_goal !== 'string'
+      ) {
+        throw new Error(
+          'No valid AI practice feedback was returned. Please try again.'
+        )
+      }
+
+      setAiFeedback(data.ai_feedback)
+    } catch (error) {
+      setAiFeedbackError(
+        error instanceof TypeError
+          ? 'Unable to connect to the backend. Please check your connection and try again.'
+          : error.message ||
+            'Unable to generate AI practice feedback. Please try again.'
+      )
+    } finally {
+      setAiFeedbackLoading(false)
+    }
+  }
 
   // US-14, US-15, US-16 - Performance accuracy metrics
   const pitchAccuracy = metrics?.pitch_accuracy
@@ -332,10 +469,31 @@ function PerformanceResults() {
     )
   }
 
+  // US-20 - Format the saved practice session date.
+  const formatPracticeDate = (value) => {
+    if (!value) {
+      return 'Not available'
+    }
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) {
+      return 'Not available'
+    }
+
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
+
   // Format selected measure range for Session Overview
   const formatMeasureRange = () => {
     if (startMeasure == null && endMeasure == null) {
-      return 'N/A'
+      return isHistoricalSession ? 'Not available' : 'N/A'
     }
 
     if (startMeasure == null) {
@@ -365,9 +523,17 @@ function PerformanceResults() {
 
           <button
             className="back-button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() =>
+              navigate(
+                isHistoricalSession
+                  ? '/practice-history'
+                  : '/dashboard'
+              )
+            }
           >
-            ← Back to Dashboard
+            {isHistoricalSession
+              ? '← Back to Practice History'
+              : '← Back to Dashboard'}
           </button>
         </div>
       </div>
@@ -378,26 +544,36 @@ function PerformanceResults() {
     <div className="performance-results-page">
       <div className="performance-card">
 
-        {/* Back to performance upload */}
+        {/* US-20 - Navigation depends on the session type */}
         <button
           className="back-button"
-          onClick={() =>
-            navigate('/performance-upload', {
-              state: {
-                sessionId: sessionId,
-                scoreResult: scoreResult,
-                startMeasure: startMeasure,
-                endMeasure: endMeasure,
-              },
-            })
-          }
+          onClick={() => {
+            if (isHistoricalSession) {
+              navigate('/practice-history')
+            } else {
+              navigate('/performance-upload', {
+                state: {
+                  sessionId: sessionId,
+                  scoreResult: scoreResult,
+                  startMeasure: startMeasure,
+                  endMeasure: endMeasure,
+                },
+              })
+            }
+          }}
         >
-          ← Back to Performance Upload
+          {isHistoricalSession
+            ? '← Back to Practice History'
+            : '← Back to Performance Upload'}
         </button>
 
         {/* PERFORMANCE RESULTS HEADING */}
         <div className="performance-results-header">
-          <h1>Performance Results</h1>
+          <h1>
+            {isHistoricalSession
+              ? 'Historical Performance Results'
+              : 'Performance Results'}
+          </h1>
 
           {hasInsufficientAudioData ? (
             <p
@@ -413,7 +589,9 @@ function PerformanceResults() {
             </p>
           ) : (
             <p className="success-text">
-              ✓ Audio successfully processed.
+              {isHistoricalSession
+                ? '✓ Saved performance results retrieved successfully.'
+                : '✓ Audio successfully processed.'}
             </p>
           )}
         </div>
@@ -444,9 +622,9 @@ function PerformanceResults() {
             </h2>
 
             <p style={{ margin: 0, lineHeight: 1.7 }}>
-              The uploaded recording does not contain enough
-              audio data to calculate performance metrics.
-              Please upload a longer recording and try again.
+              {isHistoricalSession
+                ? 'The saved recording did not contain enough audio data to calculate performance metrics.'
+                : 'The uploaded recording does not contain enough audio data to calculate performance metrics. Please upload a longer recording and try again.'}
             </p>
 
             <p
@@ -502,6 +680,18 @@ function PerformanceResults() {
             </div>
           </div>
 
+          {/* US-20 - Saved practice session date */}
+          {isHistoricalSession && (
+            <div className="performance-session-info-grid">
+              <div className="performance-session-info-card">
+                <span>Practice Date</span>
+                <strong>
+                  {formatPracticeDate(practiceDate)}
+                </strong>
+              </div>
+            </div>
+          )}
+
           {/* Second row - session statistics */}
           <div className="performance-session-stats-grid">
             <div className="performance-session-stat-card">
@@ -535,8 +725,14 @@ function PerformanceResults() {
         </div>
 
         {/* SPRINT 4 - ANNOTATED SHEET MUSIC */}
-        {/* Temporarily displays the eight-measure test score */}
-        <AnnotatedSheetMusic musicXML={musicXML} />
+        {/* Display the actual uploaded score and backend annotations. */}
+        <AnnotatedSheetMusic
+          key={sessionId}
+          musicXML={musicXML}
+          scoreAnnotations={scoreAnnotations}
+          scoreLoading={scoreLoading}
+          scoreError={scoreError}
+        />
 
         {/* THREE-COLUMN PERFORMANCE RESULTS LAYOUT */}
         <div className="performance-results-layout">
@@ -682,8 +878,9 @@ function PerformanceResults() {
             <h2>Performance Feedback</h2>
 
             <p className="subtitle">
-              Review the pitch, timing, and note duration
-              feedback for your selected measures.
+              {isHistoricalSession
+                ? 'Review the saved pitch, timing, and note duration feedback for this practice session.'
+                : 'Review the pitch, timing, and note duration feedback for your selected measures.'}
             </p>
 
             {noteFeedback.length === 0 ? (
@@ -767,7 +964,9 @@ function PerformanceResults() {
             <h2>Audio Review</h2>
 
             <h3 className="performance-options-label">
-              Playback Controls
+              {isHistoricalSession
+                ? 'Historical Audio Playback'
+                : 'Playback Controls'}
             </h3>
 
             <div className="performance-display-options">
@@ -775,11 +974,17 @@ function PerformanceResults() {
                 <h4>Your Performance</h4>
 
                 <p className="performance-audio-description">
-                  Measures {startMeasure}–{endMeasure}
-                  {" · Recorded audio"}
+                  {isHistoricalSession
+                    ? 'Historical performance recording'
+                    : `Measures ${startMeasure}–${endMeasure} · Recorded audio`}
                 </p>
 
-                {performanceAudioUrl ? (
+                {isHistoricalSession ? (
+                  <p className="performance-audio-message">
+                    Original audio playback is not available
+                    for historical practice sessions.
+                  </p>
+                ) : performanceAudioUrl ? (
                   <audio
                     ref={performanceAudioRef}
                     src={performanceAudioUrl}
@@ -799,11 +1004,17 @@ function PerformanceResults() {
                 <h4>Expected Audio</h4>
 
                 <p className="performance-audio-description">
-                  Measures {startMeasure}–{endMeasure}
-                  {" · Computer-generated audio"}
+                  {isHistoricalSession
+                    ? 'Historical reference audio'
+                    : `Measures ${startMeasure}–${endMeasure} · Computer-generated audio`}
                 </p>
 
-                {referenceAudioLoading ? (
+                {isHistoricalSession ? (
+                  <p className="performance-audio-message">
+                    Expected audio playback is not available
+                    for historical practice sessions.
+                  </p>
+                ) : referenceAudioLoading ? (
                   <p
                     className="performance-audio-message"
                     role="status"
@@ -1146,6 +1357,137 @@ function PerformanceResults() {
           )}
         </div>
 
+        {/* US-19 - AI PRACTICE FEEDBACK */}
+        <section
+          className="performance-section ai-feedback-section"
+          aria-labelledby="ai-feedback-heading"
+        >
+          <h2 id="ai-feedback-heading">
+            AI Practice Feedback
+          </h2>
+
+          <p className="subtitle">
+            {isHistoricalSession
+              ? 'Review previously generated personalized practice recommendations for this session.'
+              : 'Receive personalized practice recommendations based on your performance analysis.'}
+          </p>
+
+          {/* US-19 - Generate feedback for new practice sessions only */}
+          {!isHistoricalSession && (
+            <div className="ai-feedback-actions">
+              <button
+                type="button"
+                className="upload-button ai-feedback-button"
+                onClick={handleGenerateAIFeedback}
+                disabled={aiFeedbackLoading || !performanceSummary}
+              >
+                {aiFeedbackLoading
+                  ? 'Generating AI Practice Feedback...'
+                  : 'Generate AI Practice Feedback'}
+              </button>
+            </div>
+          )}
+
+          {/* US-20 - Historical sessions without saved AI feedback */}
+          {isHistoricalSession && !aiFeedback && (
+            <p className="ai-feedback-message">
+              No previously generated AI practice feedback
+              is available for this practice session.
+            </p>
+          )}
+
+          {/* US-19 - Performance analysis is required */}
+          {!isHistoricalSession && !performanceSummary && !aiFeedback && (
+            <p className="ai-feedback-message">
+              Complete a performance analysis before
+              requesting AI feedback.
+            </p>
+          )}
+
+          {!isHistoricalSession && aiFeedbackLoading && (
+            <p
+              className="ai-feedback-loading"
+              role="status"
+            >
+              Generating personalized feedback.
+              This may take a moment.
+            </p>
+          )}
+
+          {!isHistoricalSession && aiFeedbackError && (
+            <p
+              className="ai-feedback-error"
+              role="alert"
+            >
+              {aiFeedbackError}
+            </p>
+          )}
+
+          {aiFeedback && (
+            <div className="ai-feedback-content">
+
+              {/* Overall performance assessment */}
+              <div className="ai-feedback-assessment">
+                <h3>Overall Assessment</h3>
+
+                <p>
+                  {aiFeedback.overall_assessment}
+                </p>
+              </div>
+
+              {/* Personalized practice exercises */}
+              {aiFeedback.recommendations?.length > 0 && (
+                <div className="ai-feedback-recommendations">
+                  <h3>Recommended Practice Exercises</h3>
+
+                  <div className="ai-feedback-exercise-grid">
+                    {aiFeedback.recommendations
+                      .slice(0, 3)
+                      .map((recommendation, index) => (
+                        <article
+                          className="ai-feedback-exercise-card"
+                          key={index}
+                        >
+                          <h4>Exercise {index + 1}</h4>
+
+                          <div className="ai-feedback-exercise-details">
+                            {recommendation.measure != null && (
+                              <span className="ai-feedback-measure">
+                                Measure {recommendation.measure}
+                              </span>
+                            )}
+
+                            {recommendation.error_type && (
+                              <span className="ai-feedback-error-type">
+                                {formatErrorType(
+                                  recommendation.error_type
+                                )}
+                              </span>
+                            )}
+                          </div>
+
+                          <p>
+                            {recommendation.exercise}
+                          </p>
+                        </article>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Next-session practice goal */}
+              <div className="ai-feedback-goal">
+                <h3>Next-Session Practice Goal</h3>
+
+                <p>
+                  {aiFeedback.next_session_goal}
+                </p>
+              </div>
+
+            </div>
+          )}
+        </section>
+
         {/* DETECTED PITCHES */}
         <div className="performance-section performance-detected-pitches-section">
           <h2>Detected Pitches</h2>
@@ -1183,13 +1525,21 @@ function PerformanceResults() {
           </div>
         </div>
 
-        {/* Back to dashboard */}
+        {/* US-20 - Return to the appropriate page */}
         <div className="page-actions">
           <button
             className="upload-button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() =>
+              navigate(
+                isHistoricalSession
+                  ? '/practice-history'
+                  : '/dashboard'
+              )
+            }
           >
-            Back to Dashboard
+            {isHistoricalSession
+              ? 'Back to Practice History'
+              : 'Back to Dashboard'}
           </button>
         </div>
 

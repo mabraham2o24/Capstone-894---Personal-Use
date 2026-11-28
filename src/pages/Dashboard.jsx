@@ -1,4 +1,3 @@
-
 import { useNavigate } from 'react-router-dom'
 
 import { logout } from '../auth.js'
@@ -32,7 +31,7 @@ function Dashboard() {
       </header>
 
       <main className="dashboard-content">
-        {/* Welcome section with the main practice button */}
+        {/* Welcome section with practice and history buttons */}
         <section className="dashboard-welcome">
           <span className="dashboard-eyebrow">
             YOUR PRACTICE SPACE
@@ -46,13 +45,27 @@ function Dashboard() {
             with feedback on pitch, timing, and note duration.
           </p>
 
-          <button
-            className="dashboard-primary-button"
-            onClick={() => navigate('/practice')}
-          >
-            Start Practice Session
-            <span aria-hidden="true">→</span>
-          </button>
+          {/* Dashboard navigation buttons */}
+          <div className="dashboard-action-buttons">
+            <button
+              type="button"
+              className="dashboard-primary-button"
+              onClick={() => navigate('/practice')}
+            >
+              Start Practice Session
+              <span aria-hidden="true">→</span>
+            </button>
+
+            {/* Opens the user's completed practice sessions */}
+            <button
+              type="button"
+              className="dashboard-history-button"
+              onClick={() => navigate('/practice-history')}
+            >
+              View Practice History
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
         </section>
 
         {/* Informational overview of the existing workflow */}

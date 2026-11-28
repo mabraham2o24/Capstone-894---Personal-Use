@@ -1718,3 +1718,1717 @@ describe('Performance Results Page Tests', () => {
     expect(signal.aborted).toBe(true)
   })
 })
+
+//* ============================================================
+//* SPRINT 4 - US-19: AI PRACTICE RECOMMENDATIONS
+//* ============================================================
+
+const mockAIFeedback = {
+  overall_assessment:
+    'Your pitch accuracy is strong, but timing and note duration require improvement.',
+  recommendations: [
+    {
+      measure: 4,
+      error_type: 'late',
+      exercise:
+        'Practice measure 4 slowly using a metronome.',
+    },
+    {
+      measure: 5,
+      error_type: 'incorrect_pitch',
+      exercise:
+        'Practice the incorrect notes in measure 5 individually.',
+    },
+    {
+      measure: 6,
+      error_type: 'too_long',
+      exercise:
+        'Practice maintaining the correct note duration.',
+    },
+  ],
+  next_session_goal:
+    'Improve rhythmic accuracy to at least 95%.',
+}
+
+//* Create a session containing previously generated AI feedback.
+function createAIFeedbackSession(feedback = mockAIFeedback) {
+  const session = createSprint3Session()
+
+  return {
+    ...session,
+    audioResult: {
+      ...session.audioResult,
+      ai_feedback: feedback,
+    },
+  }
+}
+
+//* Get the AI Practice Feedback section.
+function getAIFeedbackSection() {
+  return screen.getByRole('region', {
+    name: 'AI Practice Feedback',
+  })
+}
+
+//* Get the Generate AI Practice Feedback button.
+function getGenerateAIButton() {
+  return within(getAIFeedbackSection()).getByRole(
+    'button',
+    {
+      name: 'Generate AI Practice Feedback',
+    }
+  )
+}
+
+//* Mock the AI feedback API while preserving other API requests.
+function mockAIFeedbackRequest(handler) {
+  fetch.mockImplementation(async (url, options) => {
+    if (String(url).includes('/ai-feedback')) {
+      return handler(url, options)
+    }
+
+    if (String(url).includes('/reference-audio')) {
+      return createReferenceResponse()
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      text: async () => SAMPLE_MUSICXML,
+    }
+  })
+}
+
+//* Create a successful AI feedback API response.
+function createAIFeedbackResponse(
+  feedback = mockAIFeedback
+) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      ai_feedback: feedback,
+    }),
+  }
+}
+
+//* Get all AI feedback API requests.
+function getAIFeedbackRequests() {
+  return fetch.mock.calls.filter(([url]) =>
+    String(url).includes('/ai-feedback')
+  )
+}
+
+describe('US-19 - AI Practice Recommendations', () => {
+
+  //* TEST 55: Verify the AI practice feedback interface.
+  test('displays the AI practice feedback section', () => {
+    renderPerformanceResults(createSprint3Session())
+
+    const section = getAIFeedbackSection()
+
+    expect(section).toBeInTheDocument()
+
+    expect(
+      within(section).getByRole('heading', {
+        name: 'AI Practice Feedback',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByText(
+        'Receive personalized practice recommendations based on your performance analysis.'
+      )
+    ).toBeInTheDocument()
+
+    expect(getGenerateAIButton()).toBeEnabled()
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(0)
+  })
+
+  //* TEST 56: Verify the authenticated AI feedback API request.
+  test('sends an authenticated POST request to generate AI feedback', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() =>
+      createAIFeedbackResponse()
+    )
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    expect(
+      await screen.findByText(
+        mockAIFeedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/sessions/123/ai-feedback',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-access-token',
+        }),
+      })
+    )
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(1)
+  })
+
+  //* TEST 57: Verify the overall performance assessment.
+  test('displays the generated overall assessment', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() =>
+      createAIFeedbackResponse()
+    )
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('heading', {
+        name: 'Overall Assessment',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 58: Verify personalized practice exercises.
+  test('displays recommended exercises with measures and error types', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() =>
+      createAIFeedbackResponse()
+    )
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('heading', {
+        name: 'Recommended Practice Exercises',
+      })
+    ).toBeInTheDocument()
+
+    const exercises =
+      within(section).getAllByRole('article')
+
+    expect(exercises).toHaveLength(3)
+
+    expect(
+      within(exercises[0]).getByRole('heading', {
+        name: 'Exercise 1',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[0]).getByText('Measure 4')
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[0]).getByText('late')
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[0]).getByText(
+        mockAIFeedback.recommendations[0].exercise
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[1]).getByText('Measure 5')
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[1]).getByText(
+        'incorrect pitch'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[1]).getByText(
+        mockAIFeedback.recommendations[1].exercise
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[2]).getByText('Measure 6')
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[2]).getByText('too long')
+    ).toBeInTheDocument()
+
+    expect(
+      within(exercises[2]).getByText(
+        mockAIFeedback.recommendations[2].exercise
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 59: Verify the next-session practice goal.
+  test('displays the generated next-session practice goal', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() =>
+      createAIFeedbackResponse()
+    )
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('heading', {
+        name: 'Next-Session Practice Goal',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.next_session_goal
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 60: Verify the maximum of three recommendations.
+  test('displays no more than three recommended exercises', async () => {
+    const user = userEvent.setup()
+
+    const feedback = {
+      ...mockAIFeedback,
+      recommendations: [
+        ...mockAIFeedback.recommendations,
+        {
+          measure: 7,
+          error_type: 'early',
+          exercise:
+            'This fourth exercise should not be displayed.',
+        },
+      ],
+    }
+
+    mockAIFeedbackRequest(() =>
+      createAIFeedbackResponse(feedback)
+    )
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    await within(section).findByRole('heading', {
+      name: 'Recommended Practice Exercises',
+    })
+
+    expect(
+      within(section).getAllByRole('article')
+    ).toHaveLength(3)
+
+    expect(
+      within(section).queryByText(
+        'This fourth exercise should not be displayed.'
+      )
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 61: Verify feedback with no recommended exercises.
+  test('displays assessment and goal when recommendations are empty', async () => {
+    const user = userEvent.setup()
+
+    const feedback = {
+      overall_assessment:
+        'No significant performance errors were detected.',
+      recommendations: [],
+      next_session_goal:
+        'Maintain consistent performance accuracy.',
+    }
+
+    mockAIFeedbackRequest(() =>
+      createAIFeedbackResponse(feedback)
+    )
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByText(
+        feedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByText(
+        feedback.next_session_goal
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).queryByRole('heading', {
+        name: 'Recommended Practice Exercises',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      within(section).queryAllByRole('article')
+    ).toHaveLength(0)
+  })
+
+  //* TEST 62: Verify loading state and duplicate request prevention.
+  test('disables feedback generation while an AI request is pending', async () => {
+    const user = userEvent.setup()
+
+    let resolveFeedback
+
+    const pendingFeedback = new Promise((resolve) => {
+      resolveFeedback = resolve
+    })
+
+    mockAIFeedbackRequest(() => pendingFeedback)
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    const loadingButton = within(section).getByRole(
+      'button',
+      {
+        name: 'Generating AI Practice Feedback...',
+      }
+    )
+
+    expect(loadingButton).toBeDisabled()
+
+    expect(
+      within(section).getByRole('status')
+    ).toHaveTextContent(
+      'Generating personalized feedback. This may take a moment.'
+    )
+
+    await user.click(loadingButton)
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(1)
+
+    resolveFeedback(createAIFeedbackResponse())
+
+    expect(
+      await within(section).findByText(
+        mockAIFeedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+
+    expect(getGenerateAIButton()).toBeEnabled()
+
+    expect(
+      within(section).queryByRole('status')
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 63: Verify previously generated AI feedback.
+  test('displays existing AI feedback without requesting it again', () => {
+    renderPerformanceResults(
+      createAIFeedbackSession()
+    )
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getAllByRole('article')
+    ).toHaveLength(3)
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.next_session_goal
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(0)
+  })
+
+  //* TEST 64: Verify insufficient performance data handling.
+  test('prevents AI feedback generation without a performance summary', async () => {
+    const user = userEvent.setup()
+
+    renderPerformanceResults(
+      createInsufficientAudioSession()
+    )
+
+    const section = getAIFeedbackSection()
+
+    expect(getGenerateAIButton()).toBeDisabled()
+
+    expect(
+      within(section).getByText(
+        'Complete a performance analysis before requesting AI feedback.'
+      )
+    ).toBeInTheDocument()
+
+    await user.click(getGenerateAIButton())
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(0)
+
+    expect(
+      within(section).queryByRole('heading', {
+        name: 'Overall Assessment',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 65: Verify backend error handling.
+  test('displays the backend AI feedback error message', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() => ({
+      ok: false,
+      status: 500,
+      json: async () => ({
+        detail:
+          'AI feedback service is temporarily unavailable.',
+      }),
+    }))
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('alert')
+    ).toHaveTextContent(
+      'AI feedback service is temporarily unavailable.'
+    )
+
+    expect(getGenerateAIButton()).toBeEnabled()
+
+    expect(
+      within(section).queryByRole('status')
+    ).not.toBeInTheDocument()
+
+    expect(
+      within(section).queryByRole('heading', {
+        name: 'Overall Assessment',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 66: Verify invalid backend response handling.
+  test('rejects an invalid AI feedback response', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ai_feedback: {
+          overall_assessment:
+            'Incomplete feedback response.',
+          recommendations: null,
+        },
+      }),
+    }))
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('alert')
+    ).toHaveTextContent(
+      'No valid AI practice feedback was returned. Please try again.'
+    )
+
+    expect(getGenerateAIButton()).toBeEnabled()
+
+    expect(
+      within(section).queryByRole('heading', {
+        name: 'Overall Assessment',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 67: Verify AI feedback network failure handling.
+  test('displays a connection error when the AI feedback request fails', async () => {
+    const user = userEvent.setup()
+
+    mockAIFeedbackRequest(() => {
+      throw new TypeError('Failed to fetch')
+    })
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('alert')
+    ).toHaveTextContent(
+      'Unable to connect to the backend. Please check your connection and try again.'
+    )
+
+    expect(getGenerateAIButton()).toBeEnabled()
+
+    expect(
+      within(section).queryByRole('status')
+    ).not.toBeInTheDocument()
+
+    //* Existing performance results remain available.
+    expect(
+      within(
+        getMetricCard('Pitch Accuracy')
+      ).getByText('93.75%')
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 68: Verify successful retry after an AI feedback error.
+  test('allows AI feedback generation to be retried after a failure', async () => {
+    const user = userEvent.setup()
+
+    let requestCount = 0
+
+    mockAIFeedbackRequest(() => {
+      requestCount += 1
+
+      if (requestCount === 1) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({
+            detail:
+              'Unable to generate feedback at this time.',
+          }),
+        }
+      }
+
+      return createAIFeedbackResponse()
+    })
+
+    renderPerformanceResults(createSprint3Session())
+
+    await user.click(getGenerateAIButton())
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      await within(section).findByRole('alert')
+    ).toHaveTextContent(
+      'Unable to generate feedback at this time.'
+    )
+
+    expect(getGenerateAIButton()).toBeEnabled()
+
+    await user.click(getGenerateAIButton())
+
+    expect(
+      await within(section).findByText(
+        mockAIFeedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).queryByRole('alert')
+    ).not.toBeInTheDocument()
+
+    expect(
+      within(section).getAllByRole('article')
+    ).toHaveLength(3)
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.next_session_goal
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(2)
+
+    expect(getGenerateAIButton()).toBeEnabled()
+  })
+})
+
+//* ============================================================
+//* SPRINT 4 - US-20: HISTORICAL PERFORMANCE RESULTS
+//* ============================================================
+
+//* Create a previously completed practice session.
+function createHistoricalSession(overrides = {}) {
+  const session = createSprint3Session()
+
+  return {
+    ...session,
+    isHistoricalSession: true,
+    practiceDate: '2026-11-27T21:30:00Z',
+    startMeasure: null,
+    endMeasure: null,
+    performanceAudioFile: null,
+    ...overrides,
+  }
+}
+
+//* Create a historical session containing saved AI feedback.
+function createHistoricalAIFeedbackSession() {
+  const session = createHistoricalSession()
+
+  return {
+    ...session,
+    audioResult: {
+      ...session.audioResult,
+      ai_feedback: mockAIFeedback,
+    },
+  }
+}
+
+//* Render historical results with Practice History navigation.
+function renderHistoricalPerformanceResults(
+  state = createHistoricalSession()
+) {
+  return render(
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: '/performance-results',
+          state,
+        },
+      ]}
+    >
+      <Routes>
+        <Route
+          path="/performance-results"
+          element={<PerformanceResults />}
+        />
+
+        <Route
+          path="/practice-history"
+          element={<h1>Practice History Test Page</h1>}
+        />
+
+        <Route
+          path="/dashboard"
+          element={<h1>Dashboard Test Page</h1>}
+        />
+
+        <Route
+          path="/performance-upload"
+          element={<MockPerformanceUpload />}
+        />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+//* Get the saved practice date information card.
+function getPracticeDateCard() {
+  return screen
+    .getByText('Practice Date', { exact: true })
+    .closest('.performance-session-info-card')
+}
+
+//* Get the selected measures information card.
+function getHistoricalMeasuresCard() {
+  return screen
+    .getByText('Selected Measures', { exact: true })
+    .closest('.performance-session-stat-card')
+}
+
+//* Get reference audio API requests.
+function getHistoricalReferenceAudioRequests() {
+  return fetch.mock.calls.filter(([url]) =>
+    String(url).includes('/reference-audio')
+  )
+}
+
+describe('US-20 - Historical Performance Results', () => {
+
+  //* TEST 69: Verify the historical results page heading.
+  test('displays the historical performance results heading', () => {
+    renderHistoricalPerformanceResults()
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Historical Performance Results',
+        level: 1,
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(
+        '✓ Saved performance results retrieved successfully.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText(
+        '✓ Audio successfully processed.'
+      )
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 70: Verify saved performance metrics.
+  test('displays the saved performance accuracy metrics', () => {
+    const session = createHistoricalSession()
+
+    renderHistoricalPerformanceResults(session)
+
+    const metrics =
+      session.audioResult.performance_summary.metrics
+
+    const expectedMetrics = [
+      {
+        label: 'Pitch Accuracy',
+        value: metrics.pitch_accuracy.accuracy_percent,
+      },
+      {
+        label: 'Rhythmic Accuracy',
+        value: metrics.rhythmic_accuracy.accuracy_percent,
+      },
+      {
+        label: 'Tempo Consistency',
+        value: metrics.tempo_consistency.consistency_percent,
+      },
+      {
+        label: 'Note Sequence Accuracy',
+        value: metrics.note_sequence_accuracy.accuracy_percent,
+      },
+    ]
+
+    expectedMetrics.forEach(({ label, value }) => {
+      expect(
+        within(getMetricCard(label)).getByText(
+          `${Number(value).toFixed(2)}%`,
+          { exact: true }
+        )
+      ).toBeInTheDocument()
+    })
+  })
+
+  //* TEST 71: Verify saved session information.
+  test('displays the saved audio filename and session ID', () => {
+    const session = createHistoricalSession()
+
+    renderHistoricalPerformanceResults(session)
+
+    const audioCard = screen
+      .getByText('Audio File', { exact: true })
+      .closest('.performance-session-info-card')
+
+    const sessionCard = screen
+      .getByText('Session ID', { exact: true })
+      .closest('.performance-session-info-card')
+
+    expect(
+      within(audioCard).getByText(
+        session.audioResult.filename
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(sessionCard).getByText(
+        String(session.sessionId)
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 72: Verify saved practice date formatting.
+  test('displays the formatted historical practice date', () => {
+    const session = createHistoricalSession()
+
+    renderHistoricalPerformanceResults(session)
+
+    const expectedDate = new Date(
+      session.practiceDate
+    ).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+
+    expect(
+      within(getPracticeDateCard()).getByText(
+        expectedDate
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 73: Verify missing practice date handling.
+  test('displays Not available when the practice date is missing', () => {
+    renderHistoricalPerformanceResults(
+      createHistoricalSession({
+        practiceDate: null,
+      })
+    )
+
+    expect(
+      within(getPracticeDateCard()).getByText(
+        'Not available'
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 74: Verify invalid practice date handling.
+  test('displays Not available when the practice date is invalid', () => {
+    renderHistoricalPerformanceResults(
+      createHistoricalSession({
+        practiceDate: 'invalid-date',
+      })
+    )
+
+    expect(
+      within(getPracticeDateCard()).getByText(
+        'Not available'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Invalid Date')
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 75: Verify unavailable selected measures.
+  test('displays Not available when historical measure information is missing', () => {
+    renderHistoricalPerformanceResults()
+
+    expect(
+      within(
+        getHistoricalMeasuresCard()
+      ).getByText('Not available')
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 76: Verify saved note-level feedback.
+  test('displays the previously saved note-level feedback', () => {
+    const session = createHistoricalSession()
+
+    renderHistoricalPerformanceResults(session)
+
+    expect(
+      screen.getByText(
+        'Review the saved pitch, timing, and note duration feedback for this practice session.'
+      )
+    ).toBeInTheDocument()
+
+    const feedbackTable = getFeedbackTable()
+
+    expect(feedbackTable).toBeInTheDocument()
+
+    const rows = within(feedbackTable).getAllByRole(
+      'row'
+    )
+
+    expect(rows).toHaveLength(
+      session.audioResult.note_feedback.length + 1
+    )
+
+    const firstFeedback =
+      session.audioResult.note_feedback[0]
+
+    expect(
+      within(rows[1]).getAllByRole('cell')[0]
+    ).toHaveTextContent(
+      String(firstFeedback.measure)
+    )
+
+    expect(
+      within(rows[1]).getAllByRole('cell')[2]
+    ).toHaveTextContent(
+      firstFeedback.expected_note
+    )
+  })
+
+  //* TEST 77: Verify previously generated AI feedback.
+  test('displays the saved AI assessment and next-session goal', () => {
+    renderHistoricalPerformanceResults(
+      createHistoricalAIFeedbackSession()
+    )
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      within(section).getByText(
+        'Review previously generated personalized practice recommendations for this session.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByRole('heading', {
+        name: 'Overall Assessment',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.overall_assessment
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByRole('heading', {
+        name: 'Next-Session Practice Goal',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).getByText(
+        mockAIFeedback.next_session_goal
+      )
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 78: Verify saved personalized exercises.
+  test('displays the previously generated practice exercises', () => {
+    renderHistoricalPerformanceResults(
+      createHistoricalAIFeedbackSession()
+    )
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      within(section).getByRole('heading', {
+        name: 'Recommended Practice Exercises',
+      })
+    ).toBeInTheDocument()
+
+    const exercises =
+      within(section).getAllByRole('article')
+
+    expect(exercises).toHaveLength(3)
+
+    mockAIFeedback.recommendations.forEach(
+      (recommendation, index) => {
+        expect(
+          within(exercises[index]).getByText(
+            `Measure ${recommendation.measure}`
+          )
+        ).toBeInTheDocument()
+
+        expect(
+          within(exercises[index]).getByText(
+            recommendation.error_type.replace(
+              /_/g,
+              ' '
+            )
+          )
+        ).toBeInTheDocument()
+
+        expect(
+          within(exercises[index]).getByText(
+            recommendation.exercise
+          )
+        ).toBeInTheDocument()
+      }
+    )
+  })
+
+  //* TEST 79: Verify historical sessions without AI feedback.
+  test('displays an appropriate message when no saved AI feedback exists', () => {
+    const session = createHistoricalSession()
+
+    renderHistoricalPerformanceResults({
+      ...session,
+      audioResult: {
+        ...session.audioResult,
+        ai_feedback: null,
+      },
+    })
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      within(section).getByText(
+        'No previously generated AI practice feedback is available for this practice session.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(section).queryByRole('heading', {
+        name: 'Overall Assessment',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      within(section).queryAllByRole('article')
+    ).toHaveLength(0)
+  })
+
+  //* TEST 80: Prevent AI feedback generation for historical sessions.
+  test('does not display the AI feedback generation button for historical sessions', () => {
+    renderHistoricalPerformanceResults(
+      createHistoricalAIFeedbackSession()
+    )
+
+    const section = getAIFeedbackSection()
+
+    expect(
+      within(section).queryByRole('button', {
+        name: 'Generate AI Practice Feedback',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(0)
+  })
+
+  //* TEST 81: Prevent automatic AI requests for sessions without feedback.
+  test('does not automatically generate AI feedback for a historical session without saved feedback', async () => {
+    const session = createHistoricalSession()
+
+    renderHistoricalPerformanceResults({
+      ...session,
+      audioResult: {
+        ...session.audioResult,
+        ai_feedback: null,
+      },
+    })
+
+    expect(
+      await within(
+        getAIFeedbackSection()
+      ).findByText(
+        'No previously generated AI practice feedback is available for this practice session.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(
+        getAIFeedbackSection()
+      ).queryByRole('button')
+    ).not.toBeInTheDocument()
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(0)
+  })
+
+  //* TEST 82: Verify historical audio playback restrictions.
+  test('displays unavailable audio playback messages for historical sessions', () => {
+    renderHistoricalPerformanceResults()
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Historical Audio Playback',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(
+        'Original audio playback is not available for historical practice sessions.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(
+        'Expected audio playback is not available for historical practice sessions.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByLabelText(
+        'Your performance audio'
+      )
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByLabelText(
+        'Expected reference audio'
+      )
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 83: Prevent audio requests even when playback information exists.
+  test('does not create audio URLs or request reference audio for historical sessions', () => {
+    renderHistoricalPerformanceResults(
+      createHistoricalSession({
+        startMeasure: 3,
+        endMeasure: 6,
+        performanceAudioFile: new File(
+          ['mock historical recording'],
+          'historical.wav',
+          { type: 'audio/wav' }
+        ),
+      })
+    )
+
+    expect(
+      URL.createObjectURL
+    ).not.toHaveBeenCalled()
+
+    expect(
+      getHistoricalReferenceAudioRequests()
+    ).toHaveLength(0)
+
+    expect(
+      screen.queryByLabelText(
+        'Your performance audio'
+      )
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByLabelText(
+        'Expected reference audio'
+      )
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 84: Verify top Back to Practice History navigation.
+  test('returns to Practice History using the top navigation button', async () => {
+    const user = userEvent.setup()
+
+    renderHistoricalPerformanceResults()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: '← Back to Practice History',
+        exact: true,
+      })
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Practice History Test Page',
+      })
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 85: Verify bottom Back to Practice History navigation.
+  test('returns to Practice History using the bottom navigation button', async () => {
+    const user = userEvent.setup()
+
+    renderHistoricalPerformanceResults()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Back to Practice History',
+        exact: true,
+      })
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Practice History Test Page',
+      })
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 86: Verify missing historical session data handling.
+  test('handles missing historical session data and allows navigation back', async () => {
+    const user = userEvent.setup()
+
+    renderHistoricalPerformanceResults({
+      isHistoricalSession: true,
+      sessionId: null,
+      audioResult: null,
+    })
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Performance Results',
+        level: 1,
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(
+        'No processed performance is available.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('region', {
+        name: 'AI Practice Feedback',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(fetch).not.toHaveBeenCalled()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: '← Back to Practice History',
+      })
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Practice History Test Page',
+      })
+    ).toBeInTheDocument()
+  })
+})
+
+//* ============================================================
+//* SPRINT 4 - ANNOTATED SHEET MUSIC INTEGRATION
+//* ============================================================
+
+//* Create a session containing backend score annotations.
+function createAnnotatedScoreSession() {
+  const session = createSprint3Session()
+
+  return {
+    ...session,
+    audioResult: {
+      ...session.audioResult,
+      score_annotations: {
+        notes: [],
+        additional_notes: [],
+      },
+    },
+  }
+}
+
+//* Create a successful MusicXML API response.
+function createScoreResponse(xml = SAMPLE_MUSICXML) {
+  return {
+    ok: true,
+    status: 200,
+    text: async () => xml,
+    headers: new Headers({
+      'Content-Type':
+        'application/vnd.recordare.musicxml+xml',
+    }),
+  }
+}
+
+//* Mock the score API without affecting reference audio.
+function mockScoreRequest(handler) {
+  fetch.mockImplementation(async (url, options) => {
+    if (String(url).endsWith('/score')) {
+      return handler(url, options)
+    }
+
+    if (String(url).includes('/reference-audio')) {
+      return createReferenceResponse()
+    }
+
+    if (String(url).includes('/ai-feedback')) {
+      return createAIFeedbackResponse()
+    }
+
+    return createScoreResponse()
+  })
+}
+
+//* Get all uploaded score API requests.
+function getScoreRequests() {
+  return fetch.mock.calls.filter(([url]) =>
+    String(url).endsWith('/score')
+  )
+}
+
+//* Verify that the existing performance results remain available.
+function expectPerformanceResultsAvailable() {
+  expect(
+    screen.getByRole('heading', {
+      name: 'Performance Summary',
+      exact: true,
+    })
+  ).toBeInTheDocument()
+
+  expect(
+    screen.getByRole('heading', {
+      name: 'Performance Feedback',
+      exact: true,
+    })
+  ).toBeInTheDocument()
+
+  expect(
+    within(getMetricCard('Pitch Accuracy')).getByText(
+      '93.75%'
+    )
+  ).toBeInTheDocument()
+}
+
+describe('Sprint 4 - Annotated Sheet Music Integration', () => {
+
+  //* TEST 87: Verify the annotated sheet music interface.
+  test('displays the annotated sheet music section', () => {
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Annotated Sheet Music',
+      })
+    ).toBeInTheDocument()
+  })
+
+  //* TEST 88: Verify the authenticated uploaded score request.
+  test('requests the uploaded score using the session ID and access token', async () => {
+    mockScoreRequest(() => createScoreResponse())
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/sessions/123/score',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-access-token',
+          }),
+          signal: expect.any(AbortSignal),
+        })
+      )
+    })
+
+    expect(getScoreRequests()).toHaveLength(1)
+  })
+
+  //* TEST 89: Verify that the correct session score is requested.
+  test('requests the score associated with the selected session', async () => {
+    const session = {
+      ...createAnnotatedScoreSession(),
+      sessionId: 'practice-session-456',
+    }
+
+    mockScoreRequest(() => createScoreResponse())
+
+    renderPerformanceResults(session)
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/sessions/practice-session-456/score',
+        expect.any(Object)
+      )
+    })
+
+    expect(
+      getScoreRequests().some(([url]) =>
+        String(url).includes('/sessions/123/score')
+      )
+    ).toBe(false)
+  })
+
+  //* TEST 90: Verify successful MusicXML retrieval.
+  test('reads the uploaded MusicXML returned by the backend', async () => {
+    const readMusicXML = vi.fn(
+      async () => SAMPLE_MUSICXML
+    )
+
+    mockScoreRequest(() => ({
+      ...createScoreResponse(),
+      text: readMusicXML,
+    }))
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    await waitFor(() => {
+      expect(readMusicXML).toHaveBeenCalledTimes(1)
+    })
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Annotated Sheet Music',
+      })
+    ).toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 91: Verify the sheet music loading state.
+  test('displays a loading message while retrieving the uploaded score', async () => {
+    let resolveScore
+
+    const pendingScore = new Promise((resolve) => {
+      resolveScore = resolve
+    })
+
+    mockScoreRequest(() => pendingScore)
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      screen.getByText('Loading sheet music...')
+    ).toBeInTheDocument()
+
+    //* Other performance information remains available.
+    expectPerformanceResultsAvailable()
+
+    resolveScore(createScoreResponse())
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Loading sheet music...')
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  //* TEST 92: Verify missing uploaded score handling.
+  test('displays an appropriate message when the uploaded score is unavailable', async () => {
+    mockScoreRequest(() => ({
+      ok: false,
+      status: 404,
+    }))
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      await screen.findByText(
+        'The uploaded sheet music is unavailable for this session. Older practice sessions may not have a stored score.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Loading sheet music...')
+    ).not.toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 93: Verify unauthorized score access.
+  test('displays an authorization error when the score request returns 401', async () => {
+    mockScoreRequest(() => ({
+      ok: false,
+      status: 401,
+    }))
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      await screen.findByText(
+        'You are not authorized to retrieve this sheet music. Please sign in again.'
+      )
+    ).toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 94: Verify forbidden score access.
+  test('displays an authorization error when the score request returns 403', async () => {
+    mockScoreRequest(() => ({
+      ok: false,
+      status: 403,
+    }))
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      await screen.findByText(
+        'You are not authorized to retrieve this sheet music. Please sign in again.'
+      )
+    ).toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 95: Verify backend server error handling.
+  test('displays an error when the score request returns a server failure', async () => {
+    mockScoreRequest(() => ({
+      ok: false,
+      status: 500,
+    }))
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      await screen.findByText(
+        'Unable to retrieve the uploaded sheet music.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Loading sheet music...')
+    ).not.toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 96: Verify empty MusicXML response handling.
+  test('displays an error when the uploaded MusicXML is empty', async () => {
+    mockScoreRequest(() => createScoreResponse('   '))
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      await screen.findByText(
+        'The uploaded sheet music is empty.'
+      )
+    ).toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 97: Verify network connection failure handling.
+  test('displays a connection error when the score request fails', async () => {
+    mockScoreRequest(() => {
+      throw new TypeError('Failed to fetch')
+    })
+
+    renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    expect(
+      await screen.findByText(
+        'Unable to connect to the backend to retrieve sheet music.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Loading sheet music...')
+    ).not.toBeInTheDocument()
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 98: Verify uploaded score retrieval for historical sessions.
+  test('retrieves the uploaded score when viewing historical performance results', async () => {
+    const session = createHistoricalSession({
+      sessionId: 'historical-session-789',
+    })
+
+    const readMusicXML = vi.fn(
+      async () => SAMPLE_MUSICXML
+    )
+
+    mockScoreRequest(() => ({
+      ...createScoreResponse(),
+      text: readMusicXML,
+    }))
+
+    renderHistoricalPerformanceResults(session)
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Historical Performance Results',
+      })
+    ).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/sessions/historical-session-789/score',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-access-token',
+          }),
+        })
+      )
+
+      expect(readMusicXML).toHaveBeenCalledTimes(1)
+    })
+
+    expect(getScoreRequests()).toHaveLength(1)
+
+    expect(
+      getHistoricalReferenceAudioRequests()
+    ).toHaveLength(0)
+
+    expect(
+      getAIFeedbackRequests()
+    ).toHaveLength(0)
+
+    expectPerformanceResultsAvailable()
+  })
+
+  //* TEST 99: Prevent score retrieval without valid session data.
+  test('does not request uploaded sheet music without a valid session', () => {
+    renderPerformanceResults({
+      sessionId: null,
+      audioResult: null,
+    })
+
+    expect(
+      screen.getByText(
+        'No processed performance is available.'
+      )
+    ).toBeInTheDocument()
+
+    expect(getScoreRequests()).toHaveLength(0)
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Annotated Sheet Music',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 100: Verify cancellation of pending score requests.
+  test('aborts the uploaded score request when the page unmounts', async () => {
+    let scoreSignal
+    let resolveScore
+
+    const pendingScore = new Promise((resolve) => {
+      resolveScore = resolve
+    })
+
+    mockScoreRequest((url, options) => {
+      scoreSignal = options.signal
+
+      return pendingScore
+    })
+
+    const { unmount } = renderPerformanceResults(
+      createAnnotatedScoreSession()
+    )
+
+    await waitFor(() => {
+      expect(scoreSignal).toBeDefined()
+    })
+
+    expect(scoreSignal.aborted).toBe(false)
+
+    unmount()
+
+    expect(scoreSignal.aborted).toBe(true)
+
+    resolveScore(createScoreResponse())
+  })
+})

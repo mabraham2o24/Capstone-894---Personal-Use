@@ -8,12 +8,18 @@ import {
 
 import RequireAuth from '../components/RequireAuth.jsx'
 import Login from '../pages/Login.jsx'
+import App from '../App.jsx'
+
 import {
   authFetch,
   getToken,
   logout,
   saveLogin,
 } from '../auth.js'
+
+//* ============================================================
+//* MOCK AUTHENTICATION DATA
+//* ============================================================
 
 const mockLogin = {
   access_token: 'test-token',
@@ -24,6 +30,10 @@ const mockLogin = {
     name: 'Student',
   },
 }
+
+//* ============================================================
+//* TEST SETUP AND HELPER FUNCTIONS
+//* ============================================================
 
 // Renders a protected page next to a stand-in Login page.
 function renderProtectedPage() {
@@ -47,6 +57,32 @@ function renderProtectedPage() {
     </MemoryRouter>
   )
 }
+
+//* Renders the actual application at a specified route.
+function renderApplication(initialRoute) {
+  return render(
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <App />
+    </MemoryRouter>
+  )
+}
+
+//* Creates a successful empty practice history response.
+function mockEmptyPracticeHistory() {
+  const mockFetch = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => [],
+  })
+
+  vi.stubGlobal('fetch', mockFetch)
+
+  return mockFetch
+}
+
+//* ============================================================
+//* EXISTING AUTHENTICATION TESTS
+//* ============================================================
 
 describe('Authentication Tests', () => {
 
@@ -212,6 +248,208 @@ describe('Authentication Tests', () => {
     })
 
     expect(getToken()).toBe('test-token')
+  })
+
+})
+
+//* ============================================================
+//* US-20 - PRACTICE HISTORY AUTHENTICATION AND ROUTING
+//* ============================================================
+
+describe('US-20 - Practice History Authentication and Routing', () => {
+
+  //* Restore mocked globals and environment variables.
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    delete window.google
+  })
+
+  //* TEST 7: Verify that unauthenticated users cannot access Practice History.
+  test('redirects unauthenticated users from Practice History to Login', async () => {
+    localStorage.clear()
+
+    const mockFetch = mockEmptyPracticeHistory()
+
+    renderApplication('/practice-history')
+
+    expect(
+      await screen.findByRole('button', {
+        name: /^(log\s*in|sign\s*in)$/i,
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Practice History',
+        exact: true,
+      })
+    ).not.toBeInTheDocument()
+
+    expect(getToken()).toBeNull()
+
+    //* The protected page should not request practice history.
+    expect(
+      mockFetch.mock.calls.filter(([url]) =>
+        String(url).endsWith('/sessions')
+      )
+    ).toHaveLength(0)
+  })
+
+  //* TEST 8: Verify that authenticated users can access Practice History.
+  test('allows authenticated users to access the Practice History route', async () => {
+    saveLogin(mockLogin)
+
+    mockEmptyPracticeHistory()
+
+    renderApplication('/practice-history')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Practice History',
+        exact: true,
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'No Practice Sessions Yet',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Back to Dashboard',
+      })
+    ).toBeInTheDocument()
+
+    expect(getToken()).toBe('test-token')
+  })
+
+  //* TEST 9: Verify that Practice History requests carry authentication.
+  test('includes the authentication token when retrieving practice history through the protected route', async () => {
+    vi.stubEnv(
+      'VITE_API_URL',
+      'http://127.0.0.1:8000'
+    )
+
+    saveLogin(mockLogin)
+
+    const mockFetch = mockEmptyPracticeHistory()
+
+    renderApplication('/practice-history')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'No Practice Sessions Yet',
+      })
+    ).toBeInTheDocument()
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/sessions',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+        }),
+        signal: expect.any(AbortSignal),
+      })
+    )
+
+    expect(
+      mockFetch.mock.calls.filter(([url]) =>
+        String(url).endsWith('/sessions')
+      )
+    ).toHaveLength(1)
+  })
+
+  //* TEST 10: Verify that logging out removes access to Practice History.
+  test('redirects to Login when authentication is removed while viewing Practice History', async () => {
+    saveLogin(mockLogin)
+
+    mockEmptyPracticeHistory()
+
+    renderApplication('/practice-history')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'No Practice Sessions Yet',
+      })
+    ).toBeInTheDocument()
+
+    expect(getToken()).toBe('test-token')
+
+    act(() => {
+      logout()
+    })
+
+    expect(
+      await screen.findByRole('button', {
+        name: /^(log\s*in|sign\s*in)$/i,
+      })
+    ).toBeInTheDocument()
+
+    expect(getToken()).toBeNull()
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Practice History',
+        exact: true,
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'No Practice Sessions Yet',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  //* TEST 11: Verify expired authentication handling in Practice History.
+  test('redirects to Login when the backend rejects the Practice History authentication token', async () => {
+    vi.stubEnv(
+      'VITE_API_URL',
+      'http://127.0.0.1:8000'
+    )
+
+    saveLogin(mockLogin)
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        detail: 'Invalid or expired authentication token',
+      }),
+    })
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    renderApplication('/practice-history')
+
+    expect(
+      await screen.findByRole('button', {
+        name: /^(log\s*in|sign\s*in)$/i,
+      })
+    ).toBeInTheDocument()
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/sessions',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+        }),
+      })
+    )
+
+    expect(getToken()).toBeNull()
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Practice History',
+        exact: true,
+      })
+    ).not.toBeInTheDocument()
   })
 
 })

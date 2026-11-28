@@ -9,6 +9,7 @@ import PracticeSession from './pages/PracticeSession.jsx'
 import ScoreProcessing from './pages/ScoreProcessing.jsx'
 import PerformanceUpload from './pages/PerformanceUpload.jsx'
 import PerformanceResults from './pages/PerformanceResults.jsx'
+import PracticeHistory from './pages/PracticeHistory.jsx'
 
 function App() {
   return (
@@ -49,6 +50,12 @@ function App() {
       <Route
         path="/performance-results"
         element={<RequireAuth><PerformanceResults /></RequireAuth>}
+      />
+
+      {/* Displays the user's completed practice sessions */}
+      <Route
+        path="/practice-history"
+        element={<RequireAuth><PracticeHistory /></RequireAuth>}
       />
     </Routes>
   )

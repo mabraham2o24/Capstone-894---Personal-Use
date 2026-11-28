@@ -1,6 +1,12 @@
-
 import { describe, test, expect, vi, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+  cleanup,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   MemoryRouter,
@@ -10,6 +16,10 @@ import {
 } from 'react-router-dom'
 
 import PerformanceUpload from '../pages/PerformanceUpload.jsx'
+
+// =====================================================
+// TEST DATA
+// =====================================================
 
 // Sample score information from the previous page.
 const mockScoreResult = {
@@ -93,7 +103,43 @@ const mockSprint3AudioResult = {
   },
 }
 
+// Sprint 4 annotated sheet music response.
+const mockScoreAnnotations = {
+  notes: [
+    {
+      note_id: 'p0_m4_q1.0_A4',
+      part_index: 0,
+      measure: 4,
+      offset_in_measure: 1,
+      midi: 69,
+      beat: 2,
+      expected_note: 'A4',
+      played_note: 'A4',
+      errors: [
+        {
+          type: 'late',
+          category: 'timing',
+          description: 'Played late.',
+        },
+      ],
+    },
+  ],
+  additional_notes: [
+    {
+      measure: 3,
+      beat: 1.32,
+      played_note: 'D5',
+      description:
+        'An extra D5 was played that is not in the score.',
+    },
+  ],
+}
+
 let transferredPerformanceAudioFile
+
+// =====================================================
+// MOCK NAVIGATION PAGES
+// =====================================================
 
 // Capture the full navigation state on Performance Results.
 function MockPerformanceResults() {
@@ -124,14 +170,17 @@ function MockPerformanceResults() {
             Pitch Accuracy:
             {summary.metrics?.pitch_accuracy?.accuracy_percent}
           </p>
+
           <p>
             Rhythmic Accuracy:
             {summary.metrics?.rhythmic_accuracy?.accuracy_percent}
           </p>
+
           <p>
             Tempo Consistency:
             {summary.metrics?.tempo_consistency?.consistency_percent}
           </p>
+
           <p>
             Note Sequence Accuracy:
             {summary.metrics?.note_sequence_accuracy?.accuracy_percent}
@@ -149,6 +198,7 @@ function MockScoreProcessing() {
   return (
     <div>
       <h1>Score Processing Test Page</h1>
+
       <p>Session: {location.state?.sessionId}</p>
       <p>Score: {location.state?.scoreResult?.filename}</p>
       <p>Start: {location.state?.startMeasure}</p>
@@ -164,6 +214,10 @@ const validSession = {
   startMeasure: 3,
   endMeasure: 6,
 }
+
+// =====================================================
+// SHARED TEST HELPERS
+// =====================================================
 
 // Render the page with optional session information.
 function renderPerformanceUpload(state = null) {
@@ -243,11 +297,15 @@ function getTransferredAudioResult() {
   )
 }
 
+// =====================================================
+// US-06: MICROPHONE RECORDING MOCKS
+// =====================================================
 
 /**
- * US-06: Mock microphone and AudioWorklet browser APIs.
+ * Mock microphone and AudioWorklet browser APIs.
  *
- * Simulates microphone capture without requiring real hardware.
+ * Simulates microphone capture without requiring
+ * real microphone hardware.
  */
 function mockMicrophoneRecording() {
   const mockTrack = {
@@ -269,15 +327,20 @@ function mockMicrophoneRecording() {
 
   const mockAudioContext = {
     sampleRate: 44100,
+
     resume: vi.fn().mockResolvedValue(undefined),
+
     close: vi.fn().mockResolvedValue(undefined),
+
     audioWorklet: {
       addModule: vi.fn().mockResolvedValue(undefined),
     },
+
     createMediaStreamSource: vi.fn(() => ({
       connect: vi.fn(),
       disconnect: vi.fn(),
     })),
+
     destination: {},
   }
 
@@ -295,6 +358,7 @@ function mockMicrophoneRecording() {
     constructor() {
       this.port = {
         onmessage: null,
+
         postMessage: vi.fn((message) => {
           if (message.type === 'stop') {
             // Simulate the processor's final acknowledgment.
@@ -305,6 +369,7 @@ function mockMicrophoneRecording() {
             })
           }
         }),
+
         close: vi.fn(),
       }
 
@@ -320,6 +385,7 @@ function mockMicrophoneRecording() {
   const mockCreateObjectURL = vi.fn(
     () => 'blob:recorded-performance'
   )
+
   const mockRevokeObjectURL = vi.fn()
 
   // Preserve the native URL constructor used by React Router.
@@ -329,12 +395,16 @@ function mockMicrophoneRecording() {
   vi.spyOn(URL, 'revokeObjectURL')
     .mockImplementation(mockRevokeObjectURL)
 
+  // Prevent jsdom from attempting actual audio playback.
+  vi.spyOn(HTMLMediaElement.prototype, 'pause')
+    .mockImplementation(() => {})
 
   return {
     mockGetUserMedia,
     mockTrack,
     mockAudioContext,
     mockCreateObjectURL,
+    mockRevokeObjectURL,
 
     emitAudio(samples) {
       workletNode.port.onmessage?.({
@@ -347,14 +417,125 @@ function mockMicrophoneRecording() {
   }
 }
 
+// =====================================================
+// US-06: CUSTOM RECORDING PLAYER TEST HELPERS
+// =====================================================
+
+// Start and stop a simulated microphone recording.
+async function createRecordedPerformance(user, microphone) {
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Start Recording',
+    })
+  )
+
+  await screen.findByText('Recording in progress...')
+
+  microphone.emitAudio([
+    0.1, 0.2, -0.1, -0.2, 0.3, -0.3,
+  ])
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Stop Recording',
+    })
+  )
+
+  await screen.findByText(
+    'Recording ready. You can preview or upload it.'
+  )
+
+  return document.querySelector(
+    '.recording-hidden-audio'
+  )
+}
+
+// Mock browser playback behavior because jsdom cannot
+// actually decode and play recorded audio.
+function mockRecordingPlayback(audio, duration = 10) {
+  let paused = true
+  let ended = false
+
+  Object.defineProperties(audio, {
+    paused: {
+      configurable: true,
+      get: () => paused,
+    },
+
+    ended: {
+      configurable: true,
+      get: () => ended,
+    },
+
+    duration: {
+      configurable: true,
+      get: () => duration,
+    },
+  })
+
+  const mockPlay = vi.fn(async () => {
+    paused = false
+    ended = false
+
+    fireEvent.play(audio)
+  })
+
+  const mockPause = vi.fn(() => {
+    paused = true
+
+    fireEvent.pause(audio)
+  })
+
+  Object.defineProperties(audio, {
+    play: {
+      configurable: true,
+      writable: true,
+      value: mockPlay,
+    },
+
+    pause: {
+      configurable: true,
+      writable: true,
+      value: mockPause,
+    },
+  })
+
+  fireEvent.loadedMetadata(audio)
+
+  return {
+    mockPlay,
+    mockPause,
+
+    finishPlayback() {
+      paused = true
+      ended = true
+      audio.currentTime = duration
+
+      fireEvent.ended(audio)
+    },
+  }
+}
+
 // Restore mocks after each test.
 afterEach(() => {
+  // Unmount components before restoring browser APIs
+  // so recording cleanup can safely use the mocks.
+  cleanup()
+
   transferredPerformanceAudioFile = undefined
+
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
+// =====================================================
+// PERFORMANCE UPLOAD PAGE TESTS
+// =====================================================
+
 describe('Performance Upload Page Tests', () => {
+  // =====================================================
+  // SECTION 1: EXISTING AUDIO UPLOAD FUNCTIONALITY
+  // =====================================================
 
   // TEST 1: Verify the audio upload interface.
   test('displays the audio upload interface', () => {
@@ -501,9 +682,11 @@ describe('Performance Upload Page Tests', () => {
     ).toBeInTheDocument()
 
     // Verify the original uploaded WAV is retained for playback.
-    expect(transferredPerformanceAudioFile).toBeInstanceOf(File)
+    expect(transferredPerformanceAudioFile)
+      .toBeInstanceOf(File)
 
-    expect(transferredPerformanceAudioFile).toBe(file)
+    expect(transferredPerformanceAudioFile)
+      .toBe(file)
 
     expect(transferredPerformanceAudioFile.name)
       .toBe('performance.wav')
@@ -701,6 +884,10 @@ describe('Performance Upload Page Tests', () => {
     expect(screen.getByText('4')).toBeInTheDocument()
   })
 
+  // =====================================================
+  // SECTION 2: SPRINT 3 PERFORMANCE ANALYSIS
+  // =====================================================
+
   // TEST 13 - Sprint 3:
   // Verify the complete backend response is transferred.
   test('passes complete Sprint 3 audio analysis to results', async () => {
@@ -853,7 +1040,11 @@ describe('Performance Upload Page Tests', () => {
     ).toBeUndefined()
   })
 
-  // UT-072 - US-06:
+  // =====================================================
+  // SECTION 3: EXISTING US-06 RECORD PERFORMANCE TESTS
+  // =====================================================
+
+  // TEST 17 - UT-072 - US-06:
   // Verify starting and stopping recording produces a WAV file.
   test('UT-072: records microphone audio and creates a WAV file', async () => {
     const user = userEvent.setup()
@@ -875,7 +1066,7 @@ describe('Performance Upload Page Tests', () => {
     })
 
     expect(
-      screen.getByText('Recording in progress...')
+      await screen.findByText('Recording in progress...')
     ).toBeInTheDocument()
 
     // Simulate captured microphone samples.
@@ -899,8 +1090,30 @@ describe('Performance Upload Page Tests', () => {
       ).toBeInTheDocument()
     })
 
+    // Sprint 4 update:
+    // The filename now appears in both the custom audio
+    // player and the selected file section.
+    const recordingPlayer = document.querySelector(
+      '.recording-player-file-info'
+    )
+
+    const selectedFile = document.querySelector(
+      '.selected-file'
+    )
+
+    expect(recordingPlayer).toBeInTheDocument()
+    expect(selectedFile).toBeInTheDocument()
+
     expect(
-      screen.getByText('recorded_performance.wav')
+      within(recordingPlayer).getByText(
+        'recorded_performance.wav'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      within(selectedFile).getByText(
+        'recorded_performance.wav'
+      )
     ).toBeInTheDocument()
 
     expect(
@@ -925,7 +1138,7 @@ describe('Performance Upload Page Tests', () => {
     expect(microphone.mockAudioContext.close).toHaveBeenCalled()
   })
 
-  // UT-073 - US-06 / FR-04:
+  // TEST 18 - UT-073 - US-06 / FR-04:
   // Verify microphone permission denial is handled safely.
   test('UT-073: handles microphone permission denial', async () => {
     const user = userEvent.setup()
@@ -977,7 +1190,7 @@ describe('Performance Upload Page Tests', () => {
     ).not.toBeInTheDocument()
   })
 
-  // IT-041 - US-06 / FR-04:
+  // TEST 19 - IT-041 - US-06 / FR-04:
   // Verify recorded audio uses the existing analysis upload endpoint.
   test('IT-041: submits recorded audio for performance analysis', async () => {
     const user = userEvent.setup()
@@ -1052,12 +1265,13 @@ describe('Performance Upload Page Tests', () => {
     expect(screen.getByText('Start: 3')).toBeInTheDocument()
     expect(screen.getByText('End: 6')).toBeInTheDocument()
 
-    // Retrieve the original WAV generated by the recording process.
+    // Retrieve the original WAV generated by recording.
     const originalRecordedFile =
       microphone.mockCreateObjectURL.mock.calls[0][0]
 
     // Verify the original recording is retained for playback.
-    expect(transferredPerformanceAudioFile).toBeInstanceOf(File)
+    expect(transferredPerformanceAudioFile)
+      .toBeInstanceOf(File)
 
     expect(transferredPerformanceAudioFile)
       .toBe(originalRecordedFile)
@@ -1075,59 +1289,1228 @@ describe('Performance Upload Page Tests', () => {
       .toBeGreaterThan(44)
   })
 
-test('IT-042: rejects empty microphone recordings', async () => {
-  const user = userEvent.setup()
-  const microphone = mockMicrophoneRecording()
-  const mockFetch = vi.fn()
-  vi.stubGlobal('fetch', mockFetch)
+  // TEST 20 - IT-042 - US-06:
+  // Verify empty microphone recordings are rejected.
+  test('IT-042: rejects empty microphone recordings', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+    const mockFetch = vi.fn()
 
-  renderPerformanceUpload(validSession)
+    vi.stubGlobal('fetch', mockFetch)
 
-  // Start recording.
-  await user.click(
-    screen.getByRole('button', { name: 'Start Recording' })
-  )
+    renderPerformanceUpload(validSession)
 
-  await screen.findByText('Recording in progress...')
-
-  // Stop without emitting any audio samples.
-  await user.click(
-    screen.getByRole('button', { name: 'Stop Recording' })
-  )
-
-  // Verify the empty recording is rejected.
-  expect(
-    await screen.findByText(
-      'No audio was captured. Please record again.'
+    // Start recording.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
     )
-  ).toBeInTheDocument()
 
-  // No WAV file or preview should be created.
-  expect(microphone.mockCreateObjectURL).not.toHaveBeenCalled()
+    await screen.findByText('Recording in progress...')
 
-  expect(
-    screen.queryByText('recorded_performance.wav')
-  ).not.toBeInTheDocument()
+    // Stop without emitting any audio samples.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Stop Recording',
+      })
+    )
 
-  expect(
-    screen.queryByRole('button', { name: 'Discard Recording' })
-  ).not.toBeInTheDocument()
+    // Verify the empty recording is rejected.
+    expect(
+      await screen.findByText(
+        'No audio was captured. Please record again.'
+      )
+    ).toBeInTheDocument()
 
-  // Verify that attempting to upload is blocked.
-  await user.click(
-    screen.getByRole('button', { name: 'Upload Performance' })
-  )
+    // No WAV file or preview should be created.
+    expect(microphone.mockCreateObjectURL)
+      .not.toHaveBeenCalled()
 
-  expect(
-    await screen.findByText('Please choose a WAV audio file first.')
-  ).toBeInTheDocument()
+    expect(
+      screen.queryByText('recorded_performance.wav')
+    ).not.toBeInTheDocument()
 
-  expect(mockFetch).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole('button', {
+        name: 'Discard Recording',
+      })
+    ).not.toBeInTheDocument()
 
-  // The user should be able to retry recording.
-  expect(
-    screen.getByRole('button', { name: 'Start Recording' })
-  ).toBeEnabled()
-})
+    // Verify that attempting to upload is blocked.
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    )
 
+    expect(
+      await screen.findByText(
+        'Please choose a WAV audio file first.'
+      )
+    ).toBeInTheDocument()
+
+    expect(mockFetch).not.toHaveBeenCalled()
+
+    // The user should be able to retry recording.
+    expect(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    ).toBeEnabled()
+  })
+
+  // =====================================================
+  // SECTION 4: SPRINT 4 RECORDING INTERFACE
+  // =====================================================
+
+  // TEST 21: Verify initial recording controls.
+  test('displays the initial recording controls', () => {
+    renderPerformanceUpload(validSession)
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Record Your Performance',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    ).toBeEnabled()
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Stop Recording',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Recording Preview',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  // TEST 22: Verify recording status and disabled upload.
+  test('displays recording status and disables upload while recording', async () => {
+    const user = userEvent.setup()
+
+    mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    expect(
+      await screen.findByRole('status')
+    ).toHaveTextContent('Recording in progress...')
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Stop Recording',
+      })
+    ).toBeEnabled()
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Start Recording',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    ).toBeDisabled()
+  })
+
+  // TEST 23: Verify the custom recording preview.
+  test('displays the custom recording preview after recording', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    expect(
+      screen.getByRole('status')
+    ).toHaveTextContent('Recording Complete')
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Recording Preview',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByText('Your Recorded Performance')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Discard Recording',
+      })
+    ).toBeEnabled()
+
+    expect(audio).toBeInTheDocument()
+
+    expect(audio).toHaveAttribute(
+      'src',
+      'blob:recorded-performance'
+    )
+
+    expect(audio).toHaveAttribute(
+      'preload',
+      'metadata'
+    )
+
+    expect(audio).not.toHaveAttribute('controls')
+  })
+
+  // =====================================================
+  // SECTION 5: CUSTOM AUDIO PLAYER DURATION AND PLAYBACK
+  // =====================================================
+
+  // TEST 24: Verify playback controls before metadata loads.
+  test('disables seeking until recording duration is available', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    await createRecordedPerformance(user, microphone)
+
+    expect(
+      screen.getByRole('slider', {
+        name: 'Recording playback position',
+      })
+    ).toBeDisabled()
+
+    expect(
+      screen.getByText('0:00 duration')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 25: Verify recording duration and metadata.
+  test('displays recording duration after metadata loads', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    mockRecordingPlayback(audio, 65)
+
+    expect(
+      screen.getByText('1:05 duration')
+    ).toBeInTheDocument()
+
+    const progress = screen.getByRole('slider', {
+      name: 'Recording playback position',
+    })
+
+    expect(progress).toBeEnabled()
+
+    expect(progress).toHaveAttribute('max', '65')
+
+    expect(progress).toHaveAttribute(
+      'aria-valuetext',
+      '0:00 of 1:05'
+    )
+  })
+
+  // TEST 26: Verify invalid duration handling.
+  test('handles an unavailable recording duration safely', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    mockRecordingPlayback(audio, Infinity)
+
+    expect(
+      screen.getByText('0:00 duration')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('slider', {
+        name: 'Recording playback position',
+      })
+    ).toBeDisabled()
+  })
+
+  // TEST 27: Verify playing the recorded performance.
+  test('plays the recorded performance', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    expect(playback.mockPlay).toHaveBeenCalledTimes(1)
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Pause recording',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 28: Verify pausing the recorded performance.
+  test('pauses the recorded performance', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Pause recording',
+      })
+    )
+
+    expect(playback.mockPause).toHaveBeenCalledTimes(1)
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 29: Verify playback progress updates.
+  test('updates playback progress as the recording plays', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    mockRecordingPlayback(audio, 10)
+
+    audio.currentTime = 4
+
+    fireEvent.timeUpdate(audio)
+
+    const progress = screen.getByRole('slider', {
+      name: 'Recording playback position',
+    })
+
+    expect(progress).toHaveValue('4')
+
+    expect(progress).toHaveAttribute(
+      'aria-valuetext',
+      '0:04 of 0:10'
+    )
+
+    expect(
+      progress.style.getPropertyValue(
+        '--recording-progress'
+      )
+    ).toBe('40%')
+  })
+
+  // TEST 30: Verify seeking through the recording.
+  test('allows seeking to a different playback position', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    mockRecordingPlayback(audio, 10)
+
+    const progress = screen.getByRole('slider', {
+      name: 'Recording playback position',
+    })
+
+    fireEvent.change(progress, {
+      target: {
+        value: '6',
+      },
+    })
+
+    expect(audio.currentTime).toBe(6)
+
+    expect(progress).toHaveValue('6')
+
+    expect(progress).toHaveAttribute(
+      'aria-valuetext',
+      '0:06 of 0:10'
+    )
+
+    expect(
+      progress.style.getPropertyValue(
+        '--recording-progress'
+      )
+    ).toBe('60%')
+  })
+
+  // TEST 31: Verify playback completion.
+  test('returns to the play button when playback finishes', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio, 10)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    playback.finishPlayback()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('slider', {
+        name: 'Recording playback position',
+      })
+    ).toHaveValue('10')
+  })
+
+  // TEST 32: Verify replay after playback completes.
+  test('restarts playback from the beginning after completion', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio, 10)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    playback.finishPlayback()
+
+    expect(audio.currentTime).toBe(10)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    expect(audio.currentTime).toBe(0)
+
+    expect(playback.mockPlay).toHaveBeenCalledTimes(2)
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Pause recording',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // =====================================================
+  // SECTION 6: CUSTOM AUDIO PLAYER VOLUME CONTROLS
+  // =====================================================
+
+  // TEST 33: Verify default playback volume.
+  test('initializes recording playback at full volume', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    expect(audio.volume).toBe(1)
+    expect(audio.muted).toBe(false)
+
+    expect(
+      screen.getByRole('slider', {
+        name: 'Recording playback volume',
+      })
+    ).toHaveValue('1')
+
+    expect(
+      screen.getByText('100%')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 34: Verify volume adjustment.
+  test('adjusts recording playback volume', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const volume = screen.getByRole('slider', {
+      name: 'Recording playback volume',
+    })
+
+    fireEvent.change(volume, {
+      target: {
+        value: '0.4',
+      },
+    })
+
+    expect(audio.volume).toBeCloseTo(0.4)
+
+    expect(audio.muted).toBe(false)
+
+    expect(volume).toHaveAttribute(
+      'aria-valuetext',
+      '40%'
+    )
+
+    expect(
+      screen.getByText('40%')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 35: Verify mute and unmute.
+  test('mutes and unmutes recording playback', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Mute recording',
+      })
+    )
+
+    expect(audio.muted).toBe(true)
+
+    expect(
+      screen.getByRole('slider', {
+        name: 'Recording playback volume',
+      })
+    ).toHaveValue('0')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Unmute recording',
+      })
+    )
+
+    expect(audio.muted).toBe(false)
+
+    expect(
+      screen.getByRole('slider', {
+        name: 'Recording playback volume',
+      })
+    ).toHaveValue('1')
+  })
+
+  // TEST 36: Verify muting preserves the selected volume.
+  test('restores the previous volume after unmuting', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const volume = screen.getByRole('slider', {
+      name: 'Recording playback volume',
+    })
+
+    fireEvent.change(volume, {
+      target: {
+        value: '0.35',
+      },
+    })
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Mute recording',
+      })
+    )
+
+    expect(audio.muted).toBe(true)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Unmute recording',
+      })
+    )
+
+    expect(audio.muted).toBe(false)
+
+    expect(audio.volume).toBeCloseTo(0.35)
+
+    expect(volume).toHaveValue('0.35')
+
+    expect(
+      screen.getByText('35%')
+    ).toBeInTheDocument()
+  })
+
+  // TEST 37: Verify setting volume to zero automatically mutes.
+  test('automatically mutes when volume is set to zero', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    fireEvent.change(
+      screen.getByRole('slider', {
+        name: 'Recording playback volume',
+      }),
+      {
+        target: {
+          value: '0',
+        },
+      }
+    )
+
+    expect(audio.volume).toBe(0)
+    expect(audio.muted).toBe(true)
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Unmute recording',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 38: Verify unmuting after volume reaches zero.
+  test('restores full volume when unmuting from zero volume', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    fireEvent.change(
+      screen.getByRole('slider', {
+        name: 'Recording playback volume',
+      }),
+      {
+        target: {
+          value: '0',
+        },
+      }
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Unmute recording',
+      })
+    )
+
+    expect(audio.muted).toBe(false)
+    expect(audio.volume).toBe(1)
+
+    expect(
+      screen.getByText('100%')
+    ).toBeInTheDocument()
+  })
+
+  // =====================================================
+  // SECTION 7: CUSTOM AUDIO PLAYER ERROR HANDLING
+  // =====================================================
+
+  // TEST 39: Verify playback failure handling.
+  test('displays an error when recording playback fails', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio)
+
+    playback.mockPlay.mockRejectedValueOnce(
+      new Error('Playback failed')
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    expect(
+      await screen.findByRole('alert')
+    ).toHaveTextContent(
+      'Unable to play the recording. Please try again.'
+    )
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    ).toBeEnabled()
+  })
+
+  // TEST 40: Verify retrying playback after an error.
+  test('clears the playback error when playback is retried', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio)
+
+    playback.mockPlay.mockRejectedValueOnce(
+      new Error('Playback failed')
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    await screen.findByRole('alert')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    expect(
+      screen.queryByRole('alert')
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Pause recording',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 41: Verify audio loading errors.
+  test('displays an error when recorded audio cannot be loaded', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    fireEvent.error(audio)
+
+    expect(
+      screen.getByRole('alert')
+    ).toHaveTextContent(
+      'Unable to load the recorded audio.'
+    )
+  })
+
+  // TEST 42: Verify interrupted playback does not display an error.
+  test('does not display an error for aborted playback', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio)
+
+    const abortError = new Error('Playback interrupted')
+    abortError.name = 'AbortError'
+
+    playback.mockPlay.mockRejectedValueOnce(abortError)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    expect(playback.mockPlay).toHaveBeenCalledTimes(1)
+
+    expect(
+      screen.queryByRole('alert')
+    ).not.toBeInTheDocument()
+  })
+
+  // =====================================================
+  // SECTION 8: DISCARDING AND REPLACING RECORDINGS
+  // =====================================================
+
+  // TEST 43: Verify discarding a completed recording.
+  test('discards the recording and removes its preview', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+    const mockFetch = vi.fn()
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    renderPerformanceUpload(validSession)
+
+    const audio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(audio)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Discard Recording',
+      })
+    )
+
+    expect(playback.mockPause).toHaveBeenCalled()
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(
+      'blob:recorded-performance'
+    )
+
+    expect(
+      screen.getByText('Recording discarded.')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Recording Preview',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByText('recorded_performance.wav')
+    ).not.toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Upload Performance',
+      })
+    )
+
+    expect(
+      screen.getByText(
+        'Please choose a WAV audio file first.'
+      )
+    ).toBeInTheDocument()
+
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  // TEST 44: Verify recording again after discarding.
+  test('allows another recording after discarding the first', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const firstAudio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    mockRecordingPlayback(firstAudio)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Discard Recording',
+      })
+    )
+
+    const secondAudio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    expect(secondAudio).toBeInTheDocument()
+
+    expect(
+      microphone.mockGetUserMedia
+    ).toHaveBeenCalledTimes(2)
+
+    expect(
+      microphone.mockCreateObjectURL
+    ).toHaveBeenCalledTimes(2)
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Recording Preview',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // TEST 45: Verify replacing an existing recording.
+  test('replaces an existing recording with a new recording', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    renderPerformanceUpload(validSession)
+
+    const firstAudio = await createRecordedPerformance(
+      user,
+      microphone
+    )
+
+    const playback = mockRecordingPlayback(firstAudio)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    await screen.findByText('Recording in progress...')
+
+    expect(playback.mockPause).toHaveBeenCalled()
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(
+      'blob:recorded-performance'
+    )
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Recording Preview',
+      })
+    ).not.toBeInTheDocument()
+
+    microphone.emitAudio([
+      0.4, -0.4, 0.5, -0.5,
+    ])
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Stop Recording',
+      })
+    )
+
+    await screen.findByText(
+      'Recording ready. You can preview or upload it.'
+    )
+
+    expect(
+      microphone.mockCreateObjectURL
+    ).toHaveBeenCalledTimes(2)
+
+    const firstFile =
+      microphone.mockCreateObjectURL.mock.calls[0][0]
+
+    const secondFile =
+      microphone.mockCreateObjectURL.mock.calls[1][0]
+
+    expect(secondFile).not.toBe(firstFile)
+
+    expect(secondFile.name).toBe(
+      'recorded_performance.wav'
+    )
+
+    expect(secondFile.type).toBe('audio/wav')
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Play recording',
+      })
+    ).toBeInTheDocument()
+  })
+
+  // =====================================================
+  // SECTION 9: RESOURCE CLEANUP AND RECORDING ERRORS
+  // =====================================================
+
+  // TEST 46: Verify cleanup when leaving during recording.
+  test('releases microphone resources when leaving the page during recording', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    const { unmount } = renderPerformanceUpload(
+      validSession
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    await screen.findByText('Recording in progress...')
+
+    unmount()
+
+    expect(
+      microphone.mockTrack.stop
+    ).toHaveBeenCalled()
+
+    expect(
+      microphone.mockAudioContext.close
+    ).toHaveBeenCalled()
+  })
+
+  // TEST 47: Verify object URL cleanup when leaving the page.
+  test('releases the recording preview URL when leaving the page', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    const { unmount } = renderPerformanceUpload(
+      validSession
+    )
+
+    await createRecordedPerformance(user, microphone)
+
+    unmount()
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(
+      'blob:recorded-performance'
+    )
+  })
+
+  // TEST 48: Verify microphone initialization errors.
+  test('handles microphone initialization failures', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    microphone.mockGetUserMedia.mockRejectedValueOnce(
+      new Error('Microphone unavailable.')
+    )
+
+    renderPerformanceUpload(validSession)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    expect(
+      await screen.findByText('Microphone unavailable.')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    ).toBeEnabled()
+
+    expect(
+      microphone.mockCreateObjectURL
+    ).not.toHaveBeenCalled()
+  })
+
+  // TEST 49: Verify AudioWorklet initialization errors.
+  test('releases microphone resources if AudioWorklet initialization fails', async () => {
+    const user = userEvent.setup()
+    const microphone = mockMicrophoneRecording()
+
+    microphone.mockAudioContext.audioWorklet.addModule
+      .mockRejectedValueOnce(
+        new Error('AudioWorklet initialization failed.')
+      )
+
+    renderPerformanceUpload(validSession)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    )
+
+    expect(
+      await screen.findByText(
+        'AudioWorklet initialization failed.'
+      )
+    ).toBeInTheDocument()
+
+    expect(
+      microphone.mockTrack.stop
+    ).toHaveBeenCalled()
+
+    expect(
+      microphone.mockAudioContext.close
+    ).toHaveBeenCalled()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Start Recording',
+      })
+    ).toBeEnabled()
+  })
+
+  // =====================================================
+  // SECTION 10: SPRINT 4 ANNOTATED SHEET MUSIC INTEGRATION
+  // =====================================================
+
+  // TEST 50: Verify backend score annotations survive navigation.
+  test('passes backend score annotations to Performance Results', async () => {
+    const user = userEvent.setup()
+
+    mockSuccessfulUpload({
+      ...mockSprint3AudioResult,
+      score_annotations: mockScoreAnnotations,
+    })
+
+    renderPerformanceUpload(validSession)
+
+    await uploadAudio(user)
+
+    await screen.findByText(
+      'Performance Results Test Page'
+    )
+
+    expect(
+      getTransferredAudioResult().score_annotations
+    ).toEqual(mockScoreAnnotations)
+
+    expect(
+      getTransferredAudioResult().score_annotations.notes
+    ).toHaveLength(1)
+
+    expect(
+      getTransferredAudioResult().score_annotations.additional_notes
+    ).toHaveLength(1)
+  })
+
+  // TEST 51: Verify a successful response without annotation errors.
+  test('passes empty score annotations to Performance Results', async () => {
+    const user = userEvent.setup()
+
+    const scoreAnnotations = {
+      notes: [],
+      additional_notes: [],
+    }
+
+    mockSuccessfulUpload({
+      ...mockSprint3AudioResult,
+      score_annotations: scoreAnnotations,
+    })
+
+    renderPerformanceUpload(validSession)
+
+    await uploadAudio(user)
+
+    await screen.findByText(
+      'Performance Results Test Page'
+    )
+
+    expect(
+      getTransferredAudioResult().score_annotations
+    ).toEqual(scoreAnnotations)
+
+    expect(
+      getTransferredAudioResult().score_annotations.notes
+    ).toHaveLength(0)
+
+    expect(
+      getTransferredAudioResult().score_annotations.additional_notes
+    ).toHaveLength(0)
+  })
 })
